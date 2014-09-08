@@ -1,4 +1,4 @@
-from data_model import *
+from ...api import *
 from Bio import SeqIO
 from tabulate import tabulate
 import networkx as nx

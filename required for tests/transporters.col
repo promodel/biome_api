@@ -1,0 +1,64 @@
+# Copyright SRI International 2009-2014.  All Rights Reserved.
+#
+# Authors:
+#    Ingrid Keseler
+#    Ron Caspi
+#    Markus Krummenacker
+#    Pallavi Subhraveti
+#
+# Please see the license agreement regarding the use of and distribution of this file.
+# The format of this file is defined at http://bioinformatics.ai.sri.com/ptools/flatfile-format.html .
+#
+# Species: Bacillus subtilis subtilis 168
+# Database: BsubCyc
+# Version: 2.6
+# File Name: transporters.col
+# Date and time generated: June 17, 2014, 12:04:49
+#
+UNIQUE-ID	NAME	REACTION-EQUATION	SUBUNIT-COMPOSITION
+CPLX8J2-101	ATP synthase	ATP + 3 H+[cytosol] + H2O  <-->  ADP + phosphate + 4 H+[extracellular space]	1*BSU36840-MONOMER,1*BSU36830-MONOMER,1*BSU36820-MONOMER,1*BSU36810-MONOMER,1*BSU36800-MONOMER,1*BSU36870-MONOMER,1*BSU36860-MONOMER,1*BSU36850-MONOMER
+		4 H+[cytosol]  <-->  4 H+[periplasmic space]	
+CPLX8J2-141	ferric iron transporter	Fe3+[extracellular space]  <-->  Fe3+[cytosol]	1*BSU38270-MONOMER,1*BSU38280-MONOMER
+BSU06310-MONOMER	gamma-aminobutyrate (GABA) permease	L-proline[out]  <-->  L-proline[in]	1*BSU06310-MONOMER
+BSU34820-MONOMER	efflux transporter (ATP-binding and permease protein)	a xenobiotic[cytosol] + ATP + H2O  <-->  a xenobiotic[extracellular space] + ADP + phosphate	1*BSU34820-MONOMER
+BSU36510-MONOMER	ammonium transporter	ammonium[out]  <-->  ammonium[in]	1*BSU36510-MONOMER
+		NADP+ + NADH + H+[out]  <-->  NAD+ + NADPH + H+[in]	
+BSU06310-MONOMER	gamma-aminobutyrate (GABA) permease	4-aminobutanoate[out]  <-->  4-aminobutanoate[in]	1*BSU06310-MONOMER
+		4 H+[in]  <-->  4 H+[out]	
+BSU38050-MONOMER	phosphotransferase system (PTS) sucrose-specific enzyme IIBC component	a [PTS enzyme I]-Npi-phospho-L-histidine + sucrose[extracellular space]  <-->  a [PTS enzyme I]-L-histidine + sucrose 6-phosphate[cytosol]	1*BSU38050-MONOMER
+CPLX8J2-142	Ca<sup>2+</sup>/H<sup>+</sup> antiporter	Ca2+[cytosol] + H+[extracellular space]  <-->  Ca2+[extracellular space] + H+[cytosol]	3*BSU07920-MONOMER
+BSU09280-MONOMER	glycerol permease	glycerol[extracellular space]  <-->  glycerol[cytosol]	1*BSU09280-MONOMER
+BSU13300-MONOMER	magnesium transporter	Mg2+[extracellular space]  <-->  Mg2+[cytosol]	1*BSU13300-MONOMER
+BSU07800-MONOMER	phosphotransferase system (PTS) trehalose-specific enzyme IIBC component	alpha,alpha-trehalose[extracellular space] + phosphoenolpyruvate  <-->  alpha,alpha-trehalose 6-phosphate[cytosol] + pyruvate	1*BSU07800-MONOMER
+CPLX8J2-117	phosphotransferase system (PTS) fructose-specific	D-fructose[extracellular space] + phosphoenolpyruvate  <-->  beta-D-fructofuranose 6-phosphate + pyruvate[cytosol]	1*BSU27040-MONOMER,1*BSU27050-MONOMER,1*BSU27060-MONOMER,1*BSU27070-MONOMER
+BSU08200-MONOMER	phosphotransferase system (PTS) maltose-specific enzyme IICB component	maltose[extracellular space] + phosphoenolpyruvate  <-->  alpha-maltose 6'-phosphate[cytosol] + pyruvate	1*BSU08200-MONOMER
+BSU02350-MONOMER	phosphotransferase system (PTS) glucosamine-specific enzyme IICBA component	D-glucosamine[extracellular space] + phosphoenolpyruvate  <-->  D-glucosamine 6-phosphate[cytosol] + pyruvate	1*BSU02350-MONOMER
+BSU13890-MONOMER	phosphotransferase system (PTS) glucose-specific enzyme IICBA component	beta-D-glucose[extracellular space] + phosphoenolpyruvate  <-->  beta-D-glucose 6-phosphate[cytosol] + pyruvate	1*BSU13890-MONOMER
+BSU07700-MONOMER	phosphotransferase system (PTS) N-acetylglucosamine-specific enzyme IICB component	N-acetyl-D-glucosamine[extracellular space] + phosphoenolpyruvate  <-->  N-acetyl-D-glucosamine 6-phosphate[cytosol] + pyruvate	1*BSU07700-MONOMER
+BSU12010-MONOMER	phosphotransferase system (PTS) mannose-specific enzyme IIBCA component	D-mannose[extracellular space] + phosphoenolpyruvate  <-->  alpha-D-mannose 6-phosphate + pyruvate[cytosol]	1*BSU12010-MONOMER
+BSU39270-MONOMER	phosphotransferase system (PTS) beta-glucoside-specific enzyme IIBCA component	a beta-glucoside[extracellular space] + phosphoenolpyruvate  <-->  a beta-glucoside 6-phosphate[cytosol] + pyruvate	1*BSU39270-MONOMER
+BSU14400-MONOMER	phosphotransferase system (PTS) fructose-specific enzyme IIABC component	a [PTS enzyme I]-Npi-phospho-L-histidine + beta-D-fructofuranose[extracellular space]  <-->  beta-D-fructofuranose 1-phosphate[cytosol] + a [PTS enzyme I]-L-histidine	1*BSU14400-MONOMER
+BSU01680-MONOMER	putative sugar phosphotransferase enzyme II	a [PTS enzyme I]-Npi-phospho-L-histidine + a sugar[extracellular space]  <-->  a [PTS enzyme I]-L-histidine + a sugar phosphate[cytosol]	1*BSU01680-MONOMER
+CPLX8J2-65	choline transporter, predicted ATP-driven	choline[extracellular space] + ATP + H2O  <-->  choline[cytosol] + ADP + phosphate	1*BSU33700-MONOMER,1*BSU33710-MONOMER,1*BSU33720-MONOMER,2*BSU33730-MONOMER
+CPLX8J2-93	glycine betaine/carnitine/choline/choline sulfate ABC transporter	choline sulfate[extracellular space] + ATP + H2O  <-->  choline sulfate[cytosol] + ADP + phosphate	1*BSU33800-MONOMER,1*BSU33810-MONOMER,1*BSU33820-MONOMER,1*BSU33830-MONOMER
+CPLX8J2-37	multidrug ABC transporter	an antibiotic[cytosol] + ATP + H2O  <-->  an antibiotic[extracellular space] + ADP + phosphate	1*BSU09720-MONOMER,1*BSU09710-MONOMER
+CPLX8J2-82	peptide antibiotic ABC transporter	an antibiotic[cytosol] + ATP + H2O  <-->  an antibiotic[extracellular space] + ADP + phosphate	1*BSU34690-MONOMER,1*BSU34700-MONOMER
+CPLX8J2-119	maltodextrin ABC transporter	a maltodextrin[extracellular space] + ATP + H2O  <-->  a maltodextrin[cytosol] + ADP + phosphate	1*BSU34590-MONOMER,1*BSU34600-MONOMER,1*BSU34610-MONOMER
+CPLX8J2-38	petrobactin iron-siderophore ABC transporter	petrobactin[extracellular space] + ATP + H2O  <-->  petrobactin[cytosol] + ADP + phosphate + H+	1*BSU03830-MONOMER,1*BSU03820-MONOMER,1*BSU03810-MONOMER,1*BSU03800-MONOMER
+BSU04360-MONOMER	manganese transporter	Mn2+[extracellular space]  <-->  Mn2+[cytosol]	1*BSU04360-MONOMER
+BSU05800-MONOMER	hypoxanthine efflux transporter	hypoxanthine[cytosol]  <-->  hypoxanthine[extracellular space]	1*BSU05800-MONOMER
+BSU02170-MONOMER	putative carboxylate transporter	a carboxylate[extracellular space]  <-->  a carboxylate[cytosol]	1*BSU02170-MONOMER
+BSU07570-MONOMER	2-oxoglutarate/malate transporter	2-oxoglutarate[extracellular space]  <-->  2-oxoglutarate[cytosol]	1*BSU07570-MONOMER
+BSU03330-MONOMER	nitrate transporter	nitrate[extracellular space]  <-->  nitrate[cytosol]	1*BSU03330-MONOMER
+BSU06230-MONOMER	myo-inositol transporter	myo-inositol[extracellular space]  <-->  myo-inositol[cytosol]	1*BSU06230-MONOMER
+BSU02400-MONOMER	putative aminoacid permease	a standard alpha amino acid[extracellular space] + H+[extracellular space]  <-->  a standard alpha amino acid[cytosol] + H+[cytosol]	1*BSU02400-MONOMER
+BSU02420-MONOMER	glutamine transporter	L-glutamine[extracellular space] + H+[extracellular space]  <-->  L-glutamine[cytosol] + H+[cytosol]	1*BSU02420-MONOMER
+BSU09850-MONOMER	transporter involved in K+ efflux	K+[in] + H+[extracellular space]  <-->  K+[extracellular space] + H+[in]	1*BSU09850-MONOMER
+BSU16825-MONOMER	putative multidrug resistance protein	an antibiotic[cytosol] + H+[extracellular space]  <-->  an antibiotic[extracellular space] + H+[cytosol]	1*BSU16825-MONOMER
+BSU02340-MONOMER	proton/glutamate symport protein	L-glutamate[extracellular space] + H+[extracellular space]  <-->  L-glutamate[cytosol] + H+[cytosol]	1*BSU02340-MONOMER
+BSU23050-MONOMER	riboflavin-proton symporter	riboflavin[extracellular space] + H+[extracellular space]  <-->  riboflavin[cytosol] + H+[cytosol]	1*BSU23050-MONOMER
+BSU31580-MONOMER	Na+/malate symporter	(S)-malate[extracellular space] + Na+[extracellular space]  <-->  (S)-malate[cytosol] + Na+[cytosol]	1*BSU31580-MONOMER
+BSU03220-MONOMER	putative proline/ornithine permease	L-proline[extracellular space] + Na+[extracellular space]  <-->  L-proline[cytosol] + Na+[cytosol]	1*BSU03220-MONOMER
+BSU02140-MONOMER	glycerol-3-phosphate permease	sn-glycerol 3-phosphate[extracellular space] + H+[extracellular space]  <-->  sn-glycerol 3-phosphate[cytosol] + H+[cytosol]	1*BSU02140-MONOMER
+BSU39390-MONOMER	histidine permease	L-histidine[extracellular space] + H+[extracellular space]  <-->  L-histidine[cytosol] + H+[cytosol]	1*BSU39390-MONOMER
+BSU06160-MONOMER	H+-glucitol symporter	D-sorbitol[extracellular space] + H+[extracellular space]  <-->  D-sorbitol[cytosol] + H+[cytosol]	1*BSU06160-MONOMER

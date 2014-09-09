@@ -729,11 +729,11 @@ class _DatObject():
                     # found
                     if len(reagents) == 0:
                         notfound = Unspecified(name=item.replace('|', ''))
-                        if notfound in self.other_nodes:
-                            i = self.other_nodes.index(notfound)
-                            reagents = [self.other_nodes[i]]
+                        if notfound in metacyc.other_nodes:
+                            i = metacyc.other_nodes.index(notfound)
+                            reagents = [metacyc.other_nodes[i]]
                         else:
-                            self.other_nodes.append(notfound)
+                            metacyc.other_nodes.append(notfound)
                             reagents = [notfound]
                             created += 1
 
@@ -1630,9 +1630,11 @@ class MetaCyc():
         The method creates nodes for compartments.
         """
         common_names = ['Cytosol', 'Extracellular space', 'Cell wall',
-                        'Periplasmic space', 'Cell envelope', 'Unknown']
+                        'Periplasmic space', 'Cell envelope', 'Plasma membrane'
+                        'Unknown']
         cco_names = ['CCO-CYTOSOL', 'CCO-EXTRACELLULAR', 'CCO-CW-BAC-POS',
-                     'CCO-PERI-BAC', 'CCO-CE-BAC-POS', 'UNKNOWN']
+                     'CCO-PERI-BAC', 'CCO-CE-BAC-POS', 'CCO-PM-BAC-POS',
+                     'UNKNOWN']
         for cname, cco in zip(common_names, cco_names):
             self.compartments.append(Compartment(name=cname, uid=cco))
 

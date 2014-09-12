@@ -1,4 +1,4 @@
-from data_model import *
+from ...api import *
 from Bio import SeqIO
 from tabulate import tabulate
 import networkx as nx
@@ -14,7 +14,8 @@ def items_list(objects):
 
 warnings.simplefilter('always', UserWarning)
 
-def warning_on_one_line(message, category, filename, lineno, file=None, line=None):
+def warning_on_one_line(message, category, filename, lineno, file=None,
+                        line=None):
     """
     The function formats a warning message.
     """
@@ -615,7 +616,7 @@ class _DatObject():
         # RXN_LOCATIONS slot
         elif hasattr(self, 'RXN_LOCATIONS') and \
                 not hasattr(self, '^COMPARTMENT'):
-            if getattr(self, 'RXN_LOCATIONS') in comps.keys():
+            if getattr(self, 'RXN_LOCATIONS') in cco.keys():
                 compartment = getattr(self, 'RXN_LOCATION')
                 return [(compartment, cco[compartment][0], reactant)
                         for reactant in reactants]
@@ -685,7 +686,7 @@ class _DatObject():
                                 " + ".join(right))
         return formula
 
-    def links_to_reactants(self, metacyc):
+    def links_to_reactants(self, node, metacyc):
         """
         The method is looking for reaction reactants in MetaCyc object nodes.
         If there are no reactants the method creates them as Unspecified
@@ -693,41 +694,36 @@ class _DatObject():
         a number: 0 (if reactants were in MetaCyc object nodes) or a number
         of nodes it has created.
         """
-        if isinstance(metacyc, MetaCyc):
-            objects = metacyc.compounds + metacyc.complexes + \
-                      metacyc.polypeptides + metacyc.oligopeptides + \
-                      metacyc.other_nodes
-            groups = [rna for rna in metacyc.rnas if
-                      rna.__class__.__name__ == 'tRNA'] + metacyc.compounds
-            comps = self.match_compartments()
-            created = 0
+        if isinstance(node, Node):
+            if isinstance(metacyc, MetaCyc):
+                objects = metacyc.compounds + metacyc.complexes + \
+                          metacyc.polypeptides + metacyc.oligopeptides + \
+                          metacyc.other_nodes
+                groups = [rna for rna in metacyc.rnas if
+                          rna.__class__.__name__ == 'tRNA'] + metacyc.compounds
+                comps = self.match_compartments()
+                created = 0
 
-            for comp in comps:
-                # separating reactant name and numerical stoichiometric
-                # coefficient
-                reagent = comp[2]
-                item = re.sub(r'\d\s', '', reagent)
+                for comp in comps:
+                    # separating reactant name and numerical stoichiometric
+                    # coefficient
+                    reagent = comp[2]
+                    item = re.sub(r'\d\s', '', reagent)
 
-                try:
-                    num = re.match('\d+', reagent).group(0)
-                except:
-                    num = 1
+                    try:
+                        num = re.match('\d+', reagent).group(0)
+                    except:
+                        num = 1
 
-                # if stoichiometric coefficient is equal to n
-                    if reagent[:2] == 'n ':
-                        substance = reagent[2:]
-                        num = 'n'
-                reagents = [i for i in objects
-                                   if i.uid == reagent or i.name == reagent]
+                    # if stoichiometric coefficient is equal to n
+                        if reagent[:2] == 'n ':
+                            substance = reagent[2:]
+                            num = 'n'
+                    reagents = [i for i in objects
+                                       if i.uid == reagent or i.name == reagent]
 
-                if len(reagents) == 0:
-                    # searching in names of object groups and classes
-                    reagents = [i for i in groups
-                                   if reagent in i.types.split('; ')]
-
-                    # creating nodes for those reactant that were not
-                    # found
                     if len(reagents) == 0:
+<<<<<<< HEAD
                         notfound = Unspecified(name=item.replace('|', ''))
                         if notfound in metacyc.other_nodes:
                             i = metacyc.other_nodes.index(notfound)
@@ -752,6 +748,48 @@ class _DatObject():
                     self.edges.append(
                         CreateEdge(reactant, compartment, 'LOCATES_IN'))
         return created
+=======
+                        # searching in names of object groups and classes
+                        reagents = [i for i in groups
+                                       if reagent in i.types.split('; ')]
+
+                        # creating nodes for those reactant that were not
+                        # found
+                        if len(reagents) == 0:
+                            notfound = Unspecified(name=item.replace('|', ''))
+                            if notfound in metacyc.other_nodes:
+                                i = metacyc.other_nodes.index(notfound)
+                                reagents = [metacyc.other_nodes[i]]
+                            else:
+                                metacyc.other_nodes.append(notfound)
+                                reagents = [notfound]
+                                created += 1
+
+                    for reagent in reagents:
+                        compartment = [item for item in metacyc.compartments
+                                       if item.name == comp[1]]
+                        if len(compartment) == 0:
+                            compartment = [item for item in metacyc.compartments
+                                       if item.name == 'Unknown']
+                        reactant_name = '%s [%s]' %(reagent, comp[1])
+                        reactant = Reactant(stoichiometric_coef=num,
+                                            name=reactant_name)
+                        metacyc.reactants.append(reactant)
+                        metacyc.edges.append(
+                            CreateEdge(reagent, reactant, 'IS_A'))
+                        metacyc.edges.append(
+                            CreateEdge(reactant, node, 'PARTICIPATES_IN'))
+                        metacyc.edges.append(
+                            CreateEdge(reactant, compartment[0], 'LOCATES_IN'))
+
+                return created
+            else:
+                raise TypeError("The metacyc argument must be of the MetaCyc "
+                                    "class!")
+        else:
+            raise TypeError("The node argument must be of the Node class or "
+                            "derived classes!")
+>>>>>>> feature/moveDataModel2API
 
     def reactions_order(self, metacyc):
         """
@@ -1630,8 +1668,13 @@ class MetaCyc():
         The method creates nodes for compartments.
         """
         common_names = ['Cytosol', 'Extracellular space', 'Cell wall',
+<<<<<<< HEAD
                         'Periplasmic space', 'Cell envelope', 'Plasma membrane'
                         'Unknown']
+=======
+                        'Periplasmic space', 'Cell envelope',
+                        'Plasma membrane', 'Unknown']
+>>>>>>> feature/moveDataModel2API
         cco_names = ['CCO-CYTOSOL', 'CCO-EXTRACELLULAR', 'CCO-CW-BAC-POS',
                      'CCO-PERI-BAC', 'CCO-CE-BAC-POS', 'CCO-PM-BAC-POS',
                      'UNKNOWN']
@@ -1645,6 +1688,7 @@ class MetaCyc():
         """
         datfile = self._read_dat('reactions.dat')
         if datfile is not None:
+            created = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
 
@@ -1662,7 +1706,7 @@ class MetaCyc():
                     obj.links_to_synonyms(reaction, self)
 
                     # searching for exact match of name/uid of objects
-                    created = obj.links_to_reactants(self)
+                    created = obj.links_to_reactants(reaction, self)
 
                     # creating edges to EC numbers
                     if hasattr(obj, 'EC_NUMBER'):
@@ -2157,6 +2201,5 @@ class _GenesTest(_Test):
 
 ###############################################################################
 
-import doctest
-
-doctest.testfile("tests2.txt")
+#import doctest
+#doctest.testfile("metacyc_tests.txt")

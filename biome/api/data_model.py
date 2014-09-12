@@ -581,6 +581,5 @@ class Unspecified(Node):
 
 ###############################################################################
 
-import doctest
-
-doctest.testfile("data_model_tests.txt")
+#import doctest
+#doctest.testfile("data_model_tests.txt")

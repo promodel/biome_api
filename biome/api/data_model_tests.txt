@@ -3,7 +3,8 @@ The ``data_model`` module
 
 Let's load the module:
 
-    >>> import data_model as m
+
+    >>> import biome.api.data_model as m
     
 ``CreateEdge`` class
 ------------------- 
@@ -15,7 +16,7 @@ Let's load the module:
     >>> e = m.CreateEdge(n1, n2, label='similar')
     >>> e.source.name
     'g1'
-    
+
 ``XRef`` class
 -------------------     
 
@@ -31,6 +32,7 @@ Let's load the module:
     >>> obj = m.XRef(id)
     Traceback (most recent call last):
     TypeError: The id argument must be a string!
+    
     
 ``DB`` class
 -------------------     
@@ -123,5 +125,3 @@ Let's load the module:
     >>> term = m.Term(genename)
     Traceback (most recent call last):
     TypeError: The text argument must be a string!
-    
-

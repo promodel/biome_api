@@ -647,7 +647,7 @@ class _DatObject():
         # compartments and the compartments are specified in the
         # RXN_LOCATIONS slot
         elif hasattr(self, 'RXN_LOCATIONS') and hasattr(self, '^COMPARTMENT')\
-                and hasattr(self, 'CCO_IN') and hasattr(self, 'CCO_OUT'):
+                and (hasattr(self, 'CCO_IN') or hasattr(self, 'CCO_OUT')):
             compartment = getattr(self, 'RXN_LOCATIONS')
             cco_in = cco[compartment][0]
             cco_out = cco[compartment][1]

@@ -723,7 +723,6 @@ class _DatObject():
                                        if i.uid == reagent or i.name == reagent]
 
                     if len(reagents) == 0:
-<<<<<<< HEAD
                         notfound = Unspecified(name=item.replace('|', ''))
                         if notfound in metacyc.other_nodes:
                             i = metacyc.other_nodes.index(notfound)
@@ -733,22 +732,6 @@ class _DatObject():
                             reagents = [notfound]
                             created += 1
 
-                for reagent in reagents:
-                    i = metacyc.compartments.index(
-                        Compartment(name=comp[1], uid=comp[0]))
-                    compartment = metacyc.compartments[i]
-                    reactant_name = '%s [%s]' %(reagent, comp[1])
-                    reactant = Reactant(stoichiometric_coef=num,
-                                        name=reactant_name)
-                    self.reactants.append(reactant)
-                    self.edges.append(
-                        CreateEdge(reagent, reactant, 'IS_A'))
-                    self.edges.append(
-                        CreateEdge(reactant, reaction, 'PARTICIPATES_IN'))
-                    self.edges.append(
-                        CreateEdge(reactant, compartment, 'LOCATES_IN'))
-        return created
-=======
                         # searching in names of object groups and classes
                         reagents = [i for i in groups
                                        if reagent in i.types.split('; ')]
@@ -789,7 +772,6 @@ class _DatObject():
         else:
             raise TypeError("The node argument must be of the Node class or "
                             "derived classes!")
->>>>>>> feature/moveDataModel2API
 
     def reactions_order(self, metacyc):
         """
@@ -1668,13 +1650,8 @@ class MetaCyc():
         The method creates nodes for compartments.
         """
         common_names = ['Cytosol', 'Extracellular space', 'Cell wall',
-<<<<<<< HEAD
-                        'Periplasmic space', 'Cell envelope', 'Plasma membrane'
-                        'Unknown']
-=======
                         'Periplasmic space', 'Cell envelope',
                         'Plasma membrane', 'Unknown']
->>>>>>> feature/moveDataModel2API
         cco_names = ['CCO-CYTOSOL', 'CCO-EXTRACELLULAR', 'CCO-CW-BAC-POS',
                      'CCO-PERI-BAC', 'CCO-CE-BAC-POS', 'CCO-PM-BAC-POS',
                      'UNKNOWN']

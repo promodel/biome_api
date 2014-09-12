@@ -548,7 +548,8 @@ class _DatObject():
         the MetaCyc object.
         """
         if isinstance(node, Node):
-            if isinstance(metacyc, MetaCyc):
+            #if isinstance(metacyc, MetaCyc):
+            if metacyc.__class__.__name__ == 'MetaCyc':
                 try:
                     enzymes = [p for p in metacyc.proteins
                                if p.__class__.__name__ == "Enzyme"]
@@ -617,7 +618,7 @@ class _DatObject():
         elif hasattr(self, 'RXN_LOCATIONS') and \
                 not hasattr(self, '^COMPARTMENT'):
             if getattr(self, 'RXN_LOCATIONS') in cco.keys():
-                compartment = getattr(self, 'RXN_LOCATION')
+                compartment = getattr(self, 'RXN_LOCATIONS')
                 return [(compartment, cco[compartment][0], reactant)
                         for reactant in reactants]
             else:
@@ -649,16 +650,29 @@ class _DatObject():
         elif hasattr(self, 'RXN_LOCATIONS') and hasattr(self, '^COMPARTMENT')\
                 and (hasattr(self, 'CCO_IN') or hasattr(self, 'CCO_OUT')):
             compartment = getattr(self, 'RXN_LOCATIONS')
-            cco_in = cco[compartment][0]
-            cco_out = cco[compartment][1]
-            res_in = [(compartment, cco_in, reactant)
-                      for reactant in self.CCO_IN.split('; ')]
-            res_out = [(compartment, cco_out, reactant)
-                       for reactant in self.CCO_OUT.split('; ')]
+            try:
+                cco_in = cco[compartment][0]
+                res_in = [(compartment, cco_in, reactant)
+                          for reactant in self.CCO_IN.split('; ')]
+            except:
+                res_in = []
+            try:
+                cco_out = cco[compartment][1]
+                res_out = [(compartment, cco_out, reactant)
+                           for reactant in self.CCO_OUT.split('; ')]
+            except:
+                res_out = []
+
+            cco_in_out = []
+            if hasattr(self, 'CCO_IN'):
+                cco_in_out.append(self.CCO_IN)
+            if hasattr(self, 'CCO_OUT'):
+                cco_in_out.append(self.CCO_OUT)
+
             res_unknowns = [('UNKNOWN', 'Unknown', reactant)
                             for reactant in reactants
-                            if reactant not in self.CCO_IN.split('; ') +
-                               self.CCO_OUT.split('; ')]
+                            if reactant not in cco_in_out]
+
             res = res_in + res_out + res_unknowns
             return res
 
@@ -702,7 +716,6 @@ class _DatObject():
                 groups = [rna for rna in metacyc.rnas if
                           rna.__class__.__name__ == 'tRNA'] + metacyc.compounds
                 comps = self.match_compartments()
-                created = 0
 
                 for comp in comps:
                     # separating reactant name and numerical stoichiometric
@@ -719,9 +732,18 @@ class _DatObject():
                         if reagent[:2] == 'n ':
                             substance = reagent[2:]
                             num = 'n'
+
                     reagents = [i for i in objects
                                        if i.uid == reagent or i.name == reagent]
 
+
+                    # searching in names of object groups and classes
+                    if len(reagents) == 0:
+                        reagents = [i for i in groups
+                                    if reagent in i.types.split('; ')]
+
+                    # creating nodes for those reactant that were not
+                    # found
                     if len(reagents) == 0:
                         notfound = Unspecified(name=item.replace('|', ''))
                         if notfound in metacyc.other_nodes:
@@ -730,23 +752,6 @@ class _DatObject():
                         else:
                             metacyc.other_nodes.append(notfound)
                             reagents = [notfound]
-                            created += 1
-
-                        # searching in names of object groups and classes
-                        reagents = [i for i in groups
-                                       if reagent in i.types.split('; ')]
-
-                        # creating nodes for those reactant that were not
-                        # found
-                        if len(reagents) == 0:
-                            notfound = Unspecified(name=item.replace('|', ''))
-                            if notfound in metacyc.other_nodes:
-                                i = metacyc.other_nodes.index(notfound)
-                                reagents = [metacyc.other_nodes[i]]
-                            else:
-                                metacyc.other_nodes.append(notfound)
-                                reagents = [notfound]
-                                created += 1
 
                     for reagent in reagents:
                         compartment = [item for item in metacyc.compartments
@@ -764,8 +769,6 @@ class _DatObject():
                             CreateEdge(reactant, node, 'PARTICIPATES_IN'))
                         metacyc.edges.append(
                             CreateEdge(reactant, compartment[0], 'LOCATES_IN'))
-
-                return created
             else:
                 raise TypeError("The metacyc argument must be of the MetaCyc "
                                     "class!")
@@ -1665,7 +1668,7 @@ class MetaCyc():
         """
         datfile = self._read_dat('reactions.dat')
         if datfile is not None:
-            created = 0
+            other_nodes_num = len(self.other_nodes)
             for uid in datfile.names:
                 obj = datfile.data[uid]
 
@@ -1683,7 +1686,7 @@ class MetaCyc():
                     obj.links_to_synonyms(reaction, self)
 
                     # searching for exact match of name/uid of objects
-                    created = obj.links_to_reactants(reaction, self)
+                    obj.links_to_reactants(reaction, self)
 
                     # creating edges to EC numbers
                     if hasattr(obj, 'EC_NUMBER'):
@@ -1698,7 +1701,8 @@ class MetaCyc():
                     continue
             print "A list with %d reactions has been created!\n" \
                   "There were %d unknown components, nodes were created " \
-                  "for them..." % (len(self.reactions), created)
+                  "for them..." % (len(self.reactions),
+                                   len(self.other_nodes) - other_nodes_num)
 
     def pathways_dat(self):
         """

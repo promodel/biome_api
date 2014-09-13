@@ -1006,6 +1006,7 @@ class MetaCyc():
         else:
             raise TypeError("The node argument must be of the Node class or "
                             "derived classes!")
+
     def genes_col(self):
         """
         Data extraction from genes.col file. Only writing (no upgrading)
@@ -1030,6 +1031,7 @@ class MetaCyc():
                                     start=location[0], end=location[1],
                                     strand=location[2], product=chunks[2])
                         self.genes.append(gene)
+                        self.name_to_terms(gene)
                 print "A list with %d genes has been " \
                       "created!" % len(self.genes)
 
@@ -1061,6 +1063,7 @@ class MetaCyc():
                                 strand=obj.attr_check("TRANSCRIPTION_DIRECTION"),
                                 product=obj.attr_check("PRODUCT"))
                     self.genes.append(gene)
+                    self.name_to_terms(gene)
 
                     # creating Terms for gene name synonyms
                     obj.links_to_synonyms(gene, self)
@@ -1172,6 +1175,7 @@ class MetaCyc():
                     continue
 
                 self.rnas.append(rna)
+                self.name_to_terms(rna)
 
                 # creating Terms for RNAs name synonyms
                 obj.links_to_synonyms(rna, self)
@@ -1186,6 +1190,7 @@ class MetaCyc():
                     modification = Unspecified(
                         name=mod_obj.attr_check("COMMON_NAME", uid), uid=uid)
                     self.other_nodes.append(modification)
+                    self.name_to_terms(modification)
 
                     # creating edges rna -[FORMS]-> modification
                     self.edges.append(CreateEdge(rna, modification, 'FORMS'))
@@ -1228,6 +1233,7 @@ class MetaCyc():
                                tss=obj.ABSOLUTE_PLUS_1_POS,
                                strand="unknown", seq=None)
                 self.promoters.append(pro)
+                self.name_to_terms(pro)
 
             print "A list with %d promoters has been created!\n" \
                   "There were %d unmapped elements, they were " \
@@ -1302,6 +1308,7 @@ class MetaCyc():
                     notcomplete += 1
 
                 self.TUs.append(tu_obj)
+                self.name_to_terms(tu_obj)
 
                 genes = [c for c in comps if c.__class__.__name__ == "Gene"]
 
@@ -1413,6 +1420,7 @@ class MetaCyc():
                                           name=obj.attr_check("COMMON_NAME", uid),
                                           molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.polypeptides.append(peptide)
+                    self.name_to_terms(peptide)
 
                 # Oligopeptides
                 elif len(set(types + oligo)) != len(oligo) + len(types):
@@ -1420,6 +1428,7 @@ class MetaCyc():
                                            name=obj.attr_check("COMMON_NAME", uid),
                                            molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.oligopeptides.append(peptide)
+                    self.name_to_terms(peptide)
 
                 else:
                     warnings.warn("Unexpected peptide types! "
@@ -1441,6 +1450,7 @@ class MetaCyc():
                     modification = Unspecified(
                         name=mod_obj.attr_check("COMMON_NAME", uid), uid=uid)
                     self.other_nodes.append(modification)
+                    self.name_to_terms(modification)
 
                     # creating edges peptide -[FORMS]-> modification
                     self.edges.append(
@@ -1456,6 +1466,7 @@ class MetaCyc():
                                           name=obj.attr_check("COMMON_NAME", uid),
                                           molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.complexes.append(complex_obj)
+                    self.name_to_terms(complex_obj)
                 else:
                     complex_obj = complex_check[0]
 
@@ -1481,6 +1492,7 @@ class MetaCyc():
                                                 name=obj.attr_check("COMMON_NAME", comp),
                                                 molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                             self.complexes.append(component)
+                            self.name_to_terms(component)
 
                         # if a component is something else
                         else:
@@ -1539,6 +1551,7 @@ class MetaCyc():
                         name = obj.COMMON_NAME
                     sigma = SigmaFactor(name=name)
                     self.proteins.append(sigma)
+                    self.name_to_terms(sigma)
 
                     # creating an edge to a poplypetide/complex
                     protein = [p for p in (self.polypeptides + self.complexes)
@@ -1571,6 +1584,7 @@ class MetaCyc():
                 enzyme = Enzyme(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid))
                 self.proteins.append(enzyme)
+                self.name_to_terms(enzyme)
 
                 # creating edge to a polypeptide or complex
                 protein = [p for p in (self.polypeptides + self.complexes)
@@ -1817,6 +1831,7 @@ class MetaCyc():
                 chunks = line.replace('\n', '').split('\t')
                 transporter = Transporter(name=chunks[1], reaction=chunks[2])
                 self.proteins.append(transporter)
+                self.name_to_terms(transporter)
                 protein = [p for p in (self.oligopeptides + self.polypeptides +
                                        self.complexes) if p.uid == chunks[0]]
                 if len(protein) == 0:

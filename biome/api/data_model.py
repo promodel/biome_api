@@ -49,9 +49,10 @@ class Node():
     """
     An object of class Node.
     """
-    def __init__(self):
+    def __init__(self, source='MetaCyc'):
         self.labels = ':' + ':'.join(self.subclasses())
         self.comment = None
+        self.source = source
 
     def __key(self):
         """

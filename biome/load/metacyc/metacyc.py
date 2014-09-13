@@ -759,9 +759,12 @@ class _DatObject():
                         if len(compartment) == 0:
                             compartment = [item for item in metacyc.compartments
                                        if item.name == 'Unknown']
-                        reactant_name = '%s [%s]' %(reagent, comp[1])
+                        reactant_name = '%s [%s]' % (reagent.name, comp[1])
+                        annotation = '%s_%s_%s' % (reagent.name, comp[1],
+                                                   metacyc.organism)
                         reactant = Reactant(stoichiometric_coef=num,
-                                            name=reactant_name)
+                                            name=reactant_name,
+                                            annotation = annotation)
                         metacyc.reactants.append(reactant)
                         metacyc.edges.append(
                             CreateEdge(reagent, reactant, 'IS_A'))

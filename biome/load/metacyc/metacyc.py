@@ -995,6 +995,17 @@ class MetaCyc():
                 print "Unexpected error!"
         return db_obj
 
+    def name_to_terms(self, node):
+        if isinstance(node, Node):
+            if hasattr(node, 'name'):
+                term = Term(text = node.name)
+                self.terms.append(term)
+                self.edges.append(CreateEdge(node, term, 'HAS_NAME'))
+            else:
+                pass
+        else:
+            raise TypeError("The node argument must be of the Node class or "
+                            "derived classes!")
     def genes_col(self):
         """
         Data extraction from genes.col file. Only writing (no upgrading)

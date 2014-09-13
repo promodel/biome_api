@@ -549,10 +549,11 @@ class Reactant(Node):
     An object of class Reactant. It inherits all methods from the Node
     class.
     """
-    def __init__(self, name, stoichiometric_coef=1):
+    def __init__(self, name, annotation, stoichiometric_coef=1):
         Node.__init__(self)
         self.name = name
         self.stoichiometric_coef = stoichiometric_coef
+        self.annotation = annotation
 
 ###############################################################################
 

@@ -576,9 +576,11 @@ class Organism(Node):
     An object of class Organism. It inherits all methods from the Node
     class.
     """
-    def __init__(self, name):
+    def __init__(self, name, genome_status, parts=1):
         Node.__init__(self)
         self.name = name
+        self.genome_status = genome_status
+        self.parts = parts
 
 ###############################################################################
 

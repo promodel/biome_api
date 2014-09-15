@@ -571,6 +571,19 @@ class Compartment(BioEntity):
 
 ###############################################################################
 
+class Organism(Node):
+    """
+    An object of class Organism. It inherits all methods from the Node
+    class.
+    """
+    def __init__(self, name, genome_status, parts=1):
+        Node.__init__(self)
+        self.name = name
+        self.genome_status = genome_status
+        self.parts = parts
+
+###############################################################################
+
 class Unspecified(Node):
     """
     An object of class Unspecified. It inherits all methods from the Node

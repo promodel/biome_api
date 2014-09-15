@@ -1441,6 +1441,16 @@ class MetaCyc():
                 # creating XRef and DB nodes for peptide dblinks
                 obj.links_to_db(peptide, self)
 
+                # creating XRef and DB node for GO-terms
+                if hasattr(obj, 'GO_TERMS'):
+                    for goterm in obj.GO_TERMS.split('; '):
+                        goterm = goterm.replace('|', '')
+                        xref = XRef(goterm)
+                        self.xrefs.append(xref)
+                        self.edges.append(CreateEdge(peptide, xref, 'EVIDENCE'))
+                        db_obj = self.db_checker("GO")
+                        self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
+
                 # creating edge to gene encoding the peptide
                 obj.links_to_gene(peptide, self)
 
@@ -1473,6 +1483,16 @@ class MetaCyc():
                 # creating Terms for complex name synonyms
                 obj.links_to_synonyms(complex_obj, self)
 
+                # creating XRef and DB node for GO-terms
+                if hasattr(obj, 'GO_TERMS'):
+                    for goterm in obj.GO_TERMS.split('; '):
+                        goterm = goterm.replace('|', '')
+                        xref = XRef(goterm)
+                        self.xrefs.append(xref)
+                        self.edges.append(CreateEdge(complex_obj, xref, 'EVIDENCE'))
+                        db_obj = self.db_checker("GO")
+                        self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
+
                 if hasattr(obj, "COMPONENTS"):
                     db_objects = self.rnas + self.compounds + \
                                  self.oligopeptides + self.polypeptides + \
@@ -1501,6 +1521,7 @@ class MetaCyc():
                             continue
                         self.edges.append(
                             CreateEdge(component, complex_obj, 'PART_OF'))
+
 
             print "A list with %d oligopeptides has been created!\n" \
                     "A list with %d polypeptides has been created!\n" \

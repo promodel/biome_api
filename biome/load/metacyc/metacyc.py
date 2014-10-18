@@ -81,7 +81,13 @@ class _DatSet():
                     attr = make_name(sp_line[0])
                     if attr == "RIGHT" or attr == "LEFT":
                         sp_nextline = data[i+1].replace('\n', '').split(" - ")
-                        sp_nextnextline = data[i+2].replace('\n', '').split(" - ")
+
+                        # if it is the end of file
+                        if len(data) != i + 2:
+                            sp_nextnextline = data[i+2].replace('\n', '').split(" - ")
+                        else:
+                            sp_nextnextline = [None]
+
                         if sp_nextline[0] == '^COEFFICIENT':
                             sp_line[1] = '%s %s' % (sp_nextline[1], sp_line[1])
 

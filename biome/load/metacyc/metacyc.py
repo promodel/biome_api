@@ -119,8 +119,7 @@ class _DatSet():
                 warnings.warn("There are no data in the"
                               " %s file!\n" % self.filename)
         except:
-            print "There is no %s file in the database or it has an " \
-                  "incorrect format! Let's skip it..." % self.filename
+            raise Exception()
 
 ###############################################################################
 

@@ -1969,14 +1969,14 @@ class MetaCyc():
         It might be very slow for objects with a great number of edges.
         SHOULD BE REWRITTEN!
         """
-        allnodes = db.genes + db.xrefs + db.dbs + db.terms + \
-                    db.rnas + db.terminators + db.promoters + \
-                    db.BSs + db.TUs + db.compounds + \
-                    db.polypeptides + db.oligopeptides + \
-                    db.proteins + db.complexes + \
-                    db.protfeatures + db.regulation_events + \
-                    db.reactions + db.pathways + db.other_nodes + \
-                    db.reactants + db.compartments
+        allnodes = self.genes + self.xrefs + self.dbs + self.terms + \
+                   self.rnas + self.terminators + self.promoters + \
+                   self.BSs + db.TUs + self.compounds + \
+                   self.polypeptides + self.oligopeptides + \
+                   self.proteins + self.complexes + \
+                   self.protfeatures + self.regulation_events + \
+                   self.reactions + self.pathways + self.other_nodes + \
+                   self.reactants + self.compartments
 
         graph = nx.DiGraph()
 

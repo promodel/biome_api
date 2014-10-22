@@ -1971,7 +1971,7 @@ class MetaCyc():
         """
         allnodes = self.genes + self.xrefs + self.dbs + self.terms + \
                    self.rnas + self.terminators + self.promoters + \
-                   self.BSs + srlf.TUs + self.compounds + \
+                   self.BSs + self.TUs + self.compounds + \
                    self.polypeptides + self.oligopeptides + \
                    self.proteins + self.complexes + \
                    self.protfeatures + self.regulation_events + \

@@ -1965,39 +1965,51 @@ class MetaCyc():
     def make_graph(self, filename = 'metacyc'):
         """
         The method constructs a networkX graph structure from a MetaCyc object.
+        All duplicates are deleting during graph constructuin.
         It might be very slow for objects with a great number of edges.
+        SHOULD BE REWRITTEN!
         """
-        allnodes = list(set(self.genes + self.xrefs + self.dbs + self.terms +
-                            self.rnas + self.terminators + self.promoters +
-                            self.BSs + self.TUs + self.compounds +
-                            self.polypeptides + self.oligopeptides +
-                            self.proteins + self.complexes +
-                            self.protfeatures + self.regulation_events +
-                            self.reactions + self.pathways + self.other_nodes))
+        allnodes = self.genes + self.xrefs + self.dbs + self.terms + \
+                   self.rnas + self.terminators + self.promoters + \
+                   self.BSs + self.TUs + self.compounds + \
+                   self.polypeptides + self.oligopeptides + \
+                   self.proteins + self.complexes + \
+                   self.protfeatures + self.regulation_events + \
+                   self.reactions + self.pathways + self.other_nodes + \
+                   self.reactants + self.compartments
 
         graph = nx.DiGraph()
 
         # creating nodes
-        for node, i in zip(allnodes, xrange(1, len(allnodes) + 1)):
+        nodes_dict = {}
+        for node, i in zip(allnodes, xrange(0, len(allnodes))):
             mydict = node.__dict__
             for key in mydict.keys():
                 if mydict[key] is None:
                     del mydict[key]
-            graph.add_node(i, mydict)
+            if not graph.has_node(mydict):
+                graph.add_node(i, mydict)
+                nodes_dict[str(i)] = i
+            if graph.has_node(mydict):
+                nodes_values = [g[1] for g in graph.nodes(data=True)]
+                nodes_dict[str(i)] = nodes_values.index(mydict)
+
         print 'Nodes done!'
 
         # creating edges
-        i = -1
-        for edge in list(set(self.edges)):
+        i = 0
+        edges = list(set(self.edges))
+        for edge in edges:
             i += 1
             if i % 10000 == 0:
                 print i
             try:
-                source = allnodes.index(edge.source) + 1
-                target = allnodes.index(edge.target) + 1
-                graph.add_edge(source, target, label=edge.label)
+                i_source = allnodes.index(edge.source)
+                i_target = allnodes.index(edge.target)
+                graph.add_edge(nodes_dict[str(i_source)], nodes_dict[str(i_target)], label=edge.label)
             except:
-                warnings.warn("Can't find nodes for an edge!")
+                warnings.warn("Can't find nodes for an edge! Let's skip it!")
+                continue
 
         nx.write_graphml(graph, filename + '.graphml')
         nx.write_gml(graph, filename + '.gml')

@@ -2000,7 +2000,6 @@ class MetaCyc():
         i = 0
         edges = list(set(self.edges))
         for edge in edges:
-            flag = 0
             i += 1
             if i % 10000 == 0:
                 print i

@@ -1810,23 +1810,35 @@ class MetaCyc():
         """
         The method creates nodes for genes acting in pathways.
         """
-        try:
-            f = file(self.path + "pathways.col", 'r')
-            data = f.readlines()
-            f.close()
-            for line in data:
-                if line[0] == '#' or line[:3] == "UNI":
-                    continue
-                chunks = line.replace('\n', '').split('\t')
-                genes_uids = [chunk for chunk in chunks[2:] if chunk != '']
-                genes = [g for g in self.genes if g.uid in genes_uids]
-                pathway = [p for p in self.pathways if p.uid == chunks[0]][0]
+        if len(self.genes) == 0:
+            print "There is no information about genes in the MetaCyc " \
+                  "object! Let's skip it... \n"
+        elif len(self.pathways) == 0:
+            print "There is no information about pathways in the MetaCyc " \
+                  "object! Let's skip it... \n"
+        else:
+            try:
+                f = file(self.path + "pathways.col", 'r')
+                data = f.readlines()
+                f.close()
+                if len(self.pathways) != 0:
+                    for line in data:
+                        if line[0] == '#' or line[:3] == "UNI":
+                            continue
+                        chunks = line.replace('\n', '').split('\t')
+                        genes_uids = [chunk for chunk in chunks[2:]
+                                      if chunk != '']
+                        genes = [g for g in self.genes if g.uid in genes_uids]
+                        pathway = [p for p in self.pathways
+                                   if p.uid == chunks[0]][0]
 
-                # creating edges (Gene) -[ACTS_IN]-> (Pathway)
-                for gene in genes:
-                    self.edges.append(CreateEdge(gene, pathway, 'ACTS_IN'))
-        except:
-            print "There is no pathways.col file! Let's skip it..."
+                        # creating edges (Gene) -[ACTS_IN]-> (Pathway)
+                        for gene in genes:
+                            self.edges.append(
+                                CreateEdge(gene, pathway, 'ACTS_IN'))
+
+            except:
+                print "There is no pathways.col file! Let's skip it..."
 
     def protseq_fsa(self):
         """
@@ -2258,5 +2270,5 @@ class _GenesTest(_Test):
 
 ###############################################################################
 
-#import doctest
-#doctest.testfile("metacyc_tests.txt")
+import doctest
+doctest.testfile("metacyc_tests_pathway_col.txt")

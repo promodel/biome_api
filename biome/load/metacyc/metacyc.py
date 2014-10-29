@@ -928,7 +928,7 @@ class MetaCyc():
                         self.release = chunks[1]
             print "Information about version and release has been set!"
         except:
-            print 'There is no information about the database version! '
+            print 'There is no information about the database version!'
             pass
 
     def extract_data(self):
@@ -2270,5 +2270,5 @@ class _GenesTest(_Test):
 
 ###############################################################################
 
-import doctest
-doctest.testfile("metacyc_tests_pathway_col.txt")
+#import doctest
+#doctest.testfile("metacyc_tests_pathway_col.txt")

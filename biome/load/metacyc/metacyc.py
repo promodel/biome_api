@@ -877,7 +877,7 @@ class MetaCyc():
             return datfile
         except:
             print "There is no %s file in the database or it has wrong " \
-                  "format! Let's skip it...\n" % filename
+                  "format! Let's skip it..." % filename
             return None
 
     def add_edge(self, source, target, label):

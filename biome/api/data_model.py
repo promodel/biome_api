@@ -198,14 +198,12 @@ class DB(Node):
 ###############################################################################
 
 
-class RNA(BioEntity, Feature):
+class RNA(BioEntity):
     """
-    An object of class RNA. It inherits all methods from classes BioEntity and
-    Feature.
+    An object of class RNA. It inherits all methods from the class BioEntity.
     """
-    def __init__(self, name, start, end, strand, uid=None):
+    def __init__(self, name, uid=None):
         BioEntity.__init__(self, name)
-        Feature.__init__(self, start, end, strand)
         self.uid = uid
 
 ###############################################################################

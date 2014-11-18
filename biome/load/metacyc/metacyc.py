@@ -1161,20 +1161,14 @@ class MetaCyc():
                     gene = gene[0]
                     if obj.TYPES[-5:] == '-RNAs':
                         rna = sRNA(uid=uid,
-                                   name=obj.attr_check("COMMON_NAME", uid),
-                                   start=gene.start, end=gene.end,
-                                   strand=gene.strand)
+                                   name=obj.attr_check("COMMON_NAME", uid))
                     if obj.TYPES[-5:] == 'tRNAs':
                         rna = tRNA(uid=uid,
                                    name=obj.attr_check("COMMON_NAME", uid),
-                                   start=gene.start, end=gene.end,
-                                   strand=gene.strand,
                                    types=obj.attr_check("TYPES"))
                     if obj.TYPES[-5:] == 'rRNAs':
                         rna = rRNA(uid=uid,
-                                   name=obj.attr_check("COMMON_NAME", uid),
-                                   start=gene.start, end=gene.end,
-                                   strand=gene.strand)
+                                   name=obj.attr_check("COMMON_NAME", uid))
                 else:
                     notfound += 1
                     continue

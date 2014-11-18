@@ -198,14 +198,12 @@ class DB(Node):
 ###############################################################################
 
 
-class RNA(BioEntity, Feature):
+class RNA(BioEntity):
     """
-    An object of class RNA. It inherits all methods from classes BioEntity and
-    Feature.
+    An object of class RNA. It inherits all methods from the class BioEntity.
     """
-    def __init__(self, name, start, end, strand, uid=None):
+    def __init__(self, name, uid=None):
         BioEntity.__init__(self, name)
-        Feature.__init__(self, start, end, strand)
         self.uid = uid
 
 ###############################################################################
@@ -215,8 +213,8 @@ class rRNA(RNA):
     """
     An object of class rRNA. It inherits all methods from class RNA.
     """
-    def __init__(self, name, start, end, strand, uid=None):
-        RNA.__init__(self, name, start, end, strand)
+    def __init__(self, name, uid=None):
+        RNA.__init__(self, name)
         self.uid = uid
 
 ###############################################################################
@@ -224,10 +222,10 @@ class rRNA(RNA):
 
 class tRNA(RNA):
     """
-    An object of class rRNA. It inherits all methods from class RNA.
+    An object of class tRNA. It inherits all methods from class RNA.
     """
-    def __init__(self, name, start, end, strand, uid=None, types=None):
-        RNA.__init__(self, name, start, end, strand)
+    def __init__(self, name, uid=None, types=None):
+        RNA.__init__(self, name)
         self.uid = uid
         self.types = types
 
@@ -236,10 +234,10 @@ class tRNA(RNA):
 
 class sRNA(RNA):
     """
-    An object of class rRNA. It inherits all methods from class RNA.
+    An object of class sRNA. It inherits all methods from class RNA.
     """
-    def __init__(self, name, start, end, strand, uid=None):
-        RNA.__init__(self, name, start, end, strand)
+    def __init__(self, name, uid=None):
+        RNA.__init__(self, name)
         self.uid = uid
 
 ###############################################################################

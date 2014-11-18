@@ -1734,6 +1734,7 @@ class MetaCyc():
                     self.reactions.append(reaction)
 
                     # creating edges to enzymes catalyzing the reaction
+                    # (Enzyme)-[:CATALYZES]->(Reaction)
                     obj.links_to_enzymes(reaction, self)
 
                     # creating edges to reaction name synonyms

@@ -359,9 +359,9 @@ class Complex(BioEntity):
 ###############################################################################
 
 
-class Compound(BioEntity):
+class Compound(Node):
     """
-    An object of class Compound. It inherits all methods from the BioEntity
+    An object of class Compound. It inherits all methods from the Node
     class.
     """
 

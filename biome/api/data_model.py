@@ -224,10 +224,10 @@ class tRNA(RNA):
     """
     An object of class tRNA. It inherits all methods from class RNA.
     """
-    def __init__(self, name, uid=None, types=None):
+    def __init__(self, name, uid=None, type=None):
         RNA.__init__(self, name)
         self.uid = uid
-        self.types = types
+        self.type = type
 
 ###############################################################################
 
@@ -366,14 +366,14 @@ class Compound(Node):
     """
 
     def __init__(self, name, uid=None, chemical_formula=None, smiles=None,
-                 types=None, molecular_weight=None):
+                 type=None, molecular_weight=None):
         BioEntity.__init__(self, name)
         self.uid = uid
         self.name = name
         self.chemical_formula = chemical_formula
         self.molecular_weight = molecular_weight
         self.smiles = smiles
-        self.types = types
+        self.type = type
 
 ###############################################################################
 
@@ -383,11 +383,11 @@ class ProtFeature(Node):
     An object of class ProtFeature. It inherits all methods from the Node
     class.
     """
-    def __init__(self, uid=None, types=None, residues=None, source=None,
+    def __init__(self, uid=None, type=None, residues=None, source=None,
                  comment=None, alternate_sequence=None):
         Node.__init__(self)
         self.uid = uid
-        self.types = types
+        self.type = type
         self.residues = residues
         self.source = source
         self.comment = comment
@@ -519,11 +519,11 @@ class Reaction(Node):
     """
     An object of class Reaction. It inherits all methods from the Node class.
     """
-    def __init__(self, formula, uid=None, types=None):
+    def __init__(self, formula, uid=None, type=None):
         Node.__init__(self)
         self.formula = formula
         self.uid = uid
-        self.types = types
+        self.type = type
 
 ###############################################################################
 
@@ -533,11 +533,11 @@ class Pathway(BioEntity):
     An object of class Pathway. It inherits all methods from the BioEntity
     class.
     """
-    def __init__(self, name, uid=None, types=None, reaction_layout=None):
+    def __init__(self, name, uid=None, type=None, reaction_layout=None):
         BioEntity.__init__(self, name)
         self.name = name
         self.uid = uid
-        self.types = types
+        self.type = type
         self.reaction_layout = reaction_layout
 
 ###############################################################################

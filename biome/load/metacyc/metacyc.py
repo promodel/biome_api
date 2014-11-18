@@ -521,13 +521,13 @@ class _DatObject():
                         # let's search in tRNAs
                         if uid[-5:] == "tRNAs":
                             rnas = [r for r in metacyc.rnas
-                                    if r.__class__.__name__ == "tRNA" and r.types == uid]
+                                    if r.__class__.__name__ == "tRNA" and r.type == uid]
                             for rna in rnas:
                                 metacyc.edges.append(
                                     CreateEdge(rna, node, "PARTICIPATES_IN"))
                         # let's search in types of compounds
                         compounds = [c for c in metacyc.compounds
-                                     if c.types == uid]
+                                     if c.type == uid]
                         if len(compounds) != 0:
                             for compound in compounds:
                                 metacyc.edges.append(
@@ -745,7 +745,7 @@ class _DatObject():
                     # searching in names of object groups and classes
                     if len(reagents) == 0:
                         reagents = [i for i in groups
-                                    if reagent in i.types.split('; ')]
+                                    if reagent in i.type.split('; ')]
 
                     # creating nodes for those reactant that were not
                     # found
@@ -1165,7 +1165,7 @@ class MetaCyc():
                     if obj.TYPES[-5:] == 'tRNAs':
                         rna = tRNA(uid=uid,
                                    name=obj.attr_check("COMMON_NAME", uid),
-                                   types=obj.attr_check("TYPES"))
+                                   type=obj.attr_check("TYPES"))
                     if obj.TYPES[-5:] == 'rRNAs':
                         rna = rRNA(uid=uid,
                                    name=obj.attr_check("COMMON_NAME", uid))
@@ -1370,7 +1370,7 @@ class MetaCyc():
                                     chemical_formula=obj.attr_check("CHEMICAL_FORMULA"),
                                     molecular_weight=obj.attr_check("MOLECULAR_WEIGHT"),
                                     smiles=obj.attr_check("SMILES"),
-                                    types=obj.attr_check("TYPES"))
+                                    type=obj.attr_check("TYPES"))
                 self.compounds.append(compound)
 
                 # creating Terms for compounds name synonyms
@@ -1537,7 +1537,7 @@ class MetaCyc():
         if datfile is not None:
             for uid in datfile.names:
                 obj = datfile.data[uid]
-                protfeature = ProtFeature(uid=uid, types=obj.TYPES,
+                protfeature = ProtFeature(uid=uid, type=obj.TYPES,
                                           residues=obj.feature_location(),
                                           source=obj.attr_check("DATA_SOURCE"),
                                           comment=obj.attr_check("COMMENT"),
@@ -1723,7 +1723,7 @@ class MetaCyc():
                 # constructing the reaction formula
                 if hasattr(obj, "LEFT") and hasattr(obj, "RIGHT"):
                     formula = obj.make_formula()
-                    reaction = Reaction(uid=uid, types=obj.attr_check("TYPES"),
+                    reaction = Reaction(uid=uid, type=obj.attr_check("TYPES"),
                                         formula=formula)
                     self.reactions.append(reaction)
 
@@ -1768,7 +1768,7 @@ class MetaCyc():
                     continue
                 pathway = Pathway(uid=uid,
                                   name=obj.attr_check("COMMON_NAME", uid),
-                                  types=obj.TYPES,
+                                  type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
 
@@ -1787,7 +1787,7 @@ class MetaCyc():
                 obj = datfile.data[uid]
                 pathway = Pathway(uid=uid,
                                   name=obj.attr_check("COMMON_NAME", uid),
-                                  types=obj.TYPES,
+                                  type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
 

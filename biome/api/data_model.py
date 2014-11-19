@@ -367,7 +367,6 @@ class Compound(Node):
 
     def __init__(self, name, uid=None, chemical_formula=None, smiles=None,
                  type=None, molecular_weight=None):
-        BioEntity.__init__(self, name)
         self.uid = uid
         self.name = name
         self.chemical_formula = chemical_formula

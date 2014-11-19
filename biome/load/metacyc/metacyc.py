@@ -2171,7 +2171,7 @@ class _StrandStringCheck(_Test):
     def __init__(self, metacyc):
         _Test.__init__(self)
 
-        features = metacyc.genes + metacyc.rnas + metacyc.terminators + \
+        features = metacyc.genes + metacyc.terminators + \
                    metacyc.promoters + metacyc.BSs
         possible_names = ['forward', 'reverse', 'unknown', 'both', '+', '-',
                           'sense', 'antisense']

@@ -1083,22 +1083,24 @@ class MetaCyc():
             elif len(self.genes) != 0 and datfile.data is not None:
                 for gene in self.genes:
                     uid = gene.uid
-                    obj = datfile.data[uid]
+                    try:
+                        obj = datfile.data[uid]
 
-                    # let's check that genes with the same id have
-                    # the same name
-                    #obj.name_check(gene)
+                        # let's check that genes with the same id have
+                        # the same name
+                        #obj.name_check(gene)
 
-                    # let's check that genes with the same id have
-                    # the same location
-                    obj.location_check(gene)
+                        # let's check that genes with the same id have
+                        # the same location
+                        obj.location_check(gene)
 
-                    # creating Terms for gene name synonyms
-                    obj.links_to_synonyms(gene, self)
+                        # creating Terms for gene name synonyms
+                        obj.links_to_synonyms(gene, self)
 
-                    # creating XRef and DB nodes for gene name dblinks
-                    obj.links_to_db(gene, self)
-
+                        # creating XRef and DB nodes for gene name dblinks
+                        obj.links_to_db(gene, self)
+                    except:
+                        pass
             else:
                 raise StandardError("Something wrong has happened!")
 

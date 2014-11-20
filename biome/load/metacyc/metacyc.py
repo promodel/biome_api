@@ -1424,7 +1424,6 @@ class MetaCyc():
                                           name=obj.attr_check("COMMON_NAME", uid),
                                           molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.polypeptides.append(peptide)
-                    self.name_to_terms(peptide)
 
                 # Oligopeptides
                 elif len(set(types + oligo)) != len(oligo) + len(types):
@@ -1432,13 +1431,12 @@ class MetaCyc():
                                            name=obj.attr_check("COMMON_NAME", uid),
                                            molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.oligopeptides.append(peptide)
-                    self.name_to_terms(peptide)
-
                 else:
                     warnings.warn("Unexpected peptide types! "
                                   "Let's skip it... \nThe object uid %s" % uid)
                     continue
-
+                self.name_to_terms(peptide)
+                
                 # creating Terms for peptide name synonyms
                 obj.links_to_synonyms(peptide, self)
 
@@ -1776,7 +1774,8 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
-
+                self.name_to_terms(pathway)                
+               
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
                 obj.links_to_reactions(pathway, self)
@@ -1795,6 +1794,7 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
+                self.name_to_terms(pathway) 
 
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
@@ -1803,6 +1803,7 @@ class MetaCyc():
 
                 # creating Terms for pathway name synonyms
                 obj.links_to_synonyms(pathway, self)
+                
             print "A list with %d pathways has been " \
                   "created!" % len(self.pathways)
 

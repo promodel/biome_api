@@ -1083,22 +1083,24 @@ class MetaCyc():
             elif len(self.genes) != 0 and datfile.data is not None:
                 for gene in self.genes:
                     uid = gene.uid
-                    obj = datfile.data[uid]
+                    try:
+                        obj = datfile.data[uid]
 
-                    # let's check that genes with the same id have
-                    # the same name
-                    #obj.name_check(gene)
+                        # let's check that genes with the same id have
+                        # the same name
+                        #obj.name_check(gene)
 
-                    # let's check that genes with the same id have
-                    # the same location
-                    obj.location_check(gene)
+                        # let's check that genes with the same id have
+                        # the same location
+                        obj.location_check(gene)
 
-                    # creating Terms for gene name synonyms
-                    obj.links_to_synonyms(gene, self)
+                        # creating Terms for gene name synonyms
+                        obj.links_to_synonyms(gene, self)
 
-                    # creating XRef and DB nodes for gene name dblinks
-                    obj.links_to_db(gene, self)
-
+                        # creating XRef and DB nodes for gene name dblinks
+                        obj.links_to_db(gene, self)
+                    except:
+                        pass
             else:
                 raise StandardError("Something wrong has happened!")
 
@@ -1994,14 +1996,14 @@ class MetaCyc():
             for key in mydict.keys():
                 if mydict[key] is None:
                     del mydict[key]
-            if not graph.has_node(mydict):
-                graph.add_node(i, mydict)
-                nodes_dict[str(i)] = i
-            if graph.has_node(mydict):
-                nodes_values = [g[1] for g in graph.nodes(data=True)]
-                nodes_dict[str(i)] = nodes_values.index(mydict)
-
-        print 'Nodes done!'
+            graph_nodes = [g[1] for g in graph.nodes(data=True)]
+            if mydict in graph_nodes:
+                nodes_dict[str(i)] = graph_nodes.index(mydict)
+            else:
+                graph.add_node(j, mydict)
+                nodes_dict[str(i)] = j
+                j += 1
+        print "Nodes done!"
 
         # creating edges
         i = 0
@@ -2135,7 +2137,7 @@ class _NegativeCoordinatesTest(_Test):
     def __init__(self, metacyc):
         _Test.__init__(self)
 
-        features = metacyc.genes + metacyc.rnas + metacyc.terminators + \
+        features = metacyc.genes + metacyc.terminators + \
                    metacyc.promoters + metacyc.BSs
 
         neg_coord = ''
@@ -2171,7 +2173,7 @@ class _StrandStringCheck(_Test):
     def __init__(self, metacyc):
         _Test.__init__(self)
 
-        features = metacyc.genes + metacyc.rnas + metacyc.terminators + \
+        features = metacyc.genes + metacyc.terminators + \
                    metacyc.promoters + metacyc.BSs
         possible_names = ['forward', 'reverse', 'unknown', 'both', '+', '-',
                           'sense', 'antisense']

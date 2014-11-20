@@ -166,6 +166,7 @@ class Term(Node):
             raise TypeError('The text argument must be a string!')
         Node.__init__(self)
         self.text = text
+        self.source = None
 
 ###############################################################################
 
@@ -179,6 +180,7 @@ class XRef(Node):
             raise TypeError('The id argument must be a string!')
         Node.__init__(self)
         self.id = id
+        self.source = None
 
 ###############################################################################
 
@@ -194,6 +196,7 @@ class DB(Node):
         Node.__init__(self)
         self.name = name
         self.link = link
+        self.source = None
 
 ###############################################################################
 

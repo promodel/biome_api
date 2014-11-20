@@ -1205,15 +1205,18 @@ class MetaCyc():
         """
         datfile = self._read_dat('terminators.dat')
         if datfile is not None:
+            unmapped =0
             for uid in datfile.names:
                 obj = datfile.data[uid]
                 if hasattr(obj, "UNMAPPED_COMPONENT_OF"):
+                    unmapped += 1
                     continue
                 ter = Terminator(uid=uid, start=obj.LEFT_END_POSITION,
                                  end=obj.RIGHT_END_POSITION)
                 self.terminators.append(ter)
-            print "A list with %d terminators has been " \
-                  "created!" % len(self.terminators)
+            print "A list with %d terminators has been created!\n" \
+                  "There were %d unmapped elements, they were " \
+                  "skipped..." % (len(self.terminators), unmapped)
 
     def promoters_dat(self):
         """

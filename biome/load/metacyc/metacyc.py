@@ -1996,14 +1996,14 @@ class MetaCyc():
             for key in mydict.keys():
                 if mydict[key] is None:
                     del mydict[key]
-            if not graph.has_node(mydict):
-                graph.add_node(i, mydict)
-                nodes_dict[str(i)] = i
-            if graph.has_node(mydict):
-                nodes_values = [g[1] for g in graph.nodes(data=True)]
-                nodes_dict[str(i)] = nodes_values.index(mydict)
-
-        print 'Nodes done!'
+            graph_nodes = [g[1] for g in graph.nodes(data=True)]
+            if mydict in graph_nodes:
+                nodes_dict[str(i)] = graph_nodes.index(mydict)
+            else:
+                graph.add_node(j, mydict)
+                nodes_dict[str(i)] = j
+                j += 1
+        print "Nodes done!"
 
         # creating edges
         i = 0

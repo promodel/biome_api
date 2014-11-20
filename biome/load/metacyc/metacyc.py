@@ -1982,6 +1982,7 @@ class MetaCyc():
         It might be very slow for objects with a great number of edges.
         SHOULD BE REWRITTEN!
         """
+        j = 0
         allnodes = self.genes + self.xrefs + self.dbs + self.terms + \
                    self.rnas + self.terminators + self.promoters + \
                    self.BSs + self.TUs + self.compounds + \

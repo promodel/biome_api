@@ -86,7 +86,8 @@ class Node():
         The method specifies a label attribute (string of class and all
         subclasses).
         """
-        subclasses = [i.__name__ for i in ins.getmro(self.__class__)]
+        subclasses = [i.__name__ for i in ins.getmro(self.__class__) 
+		      if i.__name__ != 'Node']
         return subclasses
 
 ###############################################################################

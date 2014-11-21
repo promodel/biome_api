@@ -1377,6 +1377,7 @@ class MetaCyc():
                                     smiles=obj.attr_check("SMILES"),
                                     type=obj.attr_check("TYPES"))
                 self.compounds.append(compound)
+                self.name_to_terms(compound)
 
                 # creating Terms for compounds name synonyms
                 obj.links_to_synonyms(compound, self)

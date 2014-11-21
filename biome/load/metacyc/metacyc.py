@@ -1061,11 +1061,14 @@ class MetaCyc():
                 # each _DatObject so it's important to use attr_check method
                 for uid in datfile.names:
                     obj = datfile.data[uid]
+                    location = self._location(
+                            obj.attr_check("LEFT_END_POSITION"), 
+                            obj.attr_check("RIGHT_END_POSITION"))
                     gene = Gene(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid),
-                                start=obj.attr_check("LEFT_END_POSITION"),
-                                end=obj.attr_check("RIGHT_END_POSITION"),
-                                strand=obj.attr_check("TRANSCRIPTION_DIRECTION"),
+                                start=location[0],
+                                end=location[1],
+                                strand=location[2],
                                 product=obj.attr_check("PRODUCT"))
                     self.genes.append(gene)
                     self.name_to_terms(gene)

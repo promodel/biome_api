@@ -2037,7 +2037,7 @@ class MetaCyc():
                 self.oligopeptides + self.polypeptides + self.proteins + \
                 self.BSs + self.TUs + self.complexes + self.compartments
         for node in nodes:
-            self.edges.append(CreateEdge(organism, node, 'PART_OF'))
+            self.edges.append(CreateEdge(node, organism, 'PART_OF'))
 
 ###############################################################################
 

@@ -889,7 +889,7 @@ class MetaCyc():
         if edge not in self.edges:
             self.edges.append(edge)
 
-    def _location(self, start, end):
+    def _location(self, start, end, trans_dir=None):
         """
         Tne method takes start and end positions as an input and returns a
         correct list of the start, the end, the strand for an object based
@@ -899,12 +899,20 @@ class MetaCyc():
             raise TypeError('The start argument must be an integer!')
         if not isinstance(end, int):
             raise TypeError('The end argument must be an integer!')
-        if start < end:
-            return [start, end, 'forward']
-        elif start > end:
-            return [end, start, 'reverse']
-        else:
-            return [start, end, 'unknown']
+	if trans_dir not in ['+', '-', None]:
+            raise ValueError('The trans_dir argument must be an integer!')
+	if trans_dir == '+':
+	  return [start, end, 'forward']
+	elif trans_dir == '-':
+	  return [start, end, 'reverse']
+	else:
+	  if start < end:
+	      return [start, end, 'forward']
+	  elif start > end:
+	      return [end, start, 'reverse']
+	  else:
+	      return [start, end, 'unknown']
+	
 
     def _set_version(self):
         """
@@ -1063,7 +1071,8 @@ class MetaCyc():
                     obj = datfile.data[uid]
                     location = self._location(
                             obj.attr_check("LEFT_END_POSITION"), 
-                            obj.attr_check("RIGHT_END_POSITION"))
+                            obj.attr_check("RIGHT_END_POSITION"),
+                            obj.attr_check("TRANSCRIPTION-DIRECTION"))
                     gene = Gene(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid),
                                 start=location[0],

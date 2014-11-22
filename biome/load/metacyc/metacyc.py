@@ -937,16 +937,17 @@ class MetaCyc():
                     elif chunks[0] == 'RELEASE-DATE':
                         self.release = chunks[1]
             print "Information about version and release has been set!"
+            return 'OK'
         except:
             print 'There is no information about the database version!'
-            pass
+            return 'FAIL'
 
     def extract_data(self):
         """
         Tne method uses a number of methods for data extraction.
         """
-        # Setting version information
-        self._set_version()
+        # Setting MetaCyc DB version information and creating the Organism node
+        self.create_organism()
 
         # Everything about genes; methods create nodes for genes, terms, xrefs,
         # dbs and edges between them
@@ -1291,7 +1292,12 @@ class MetaCyc():
         """
         The method creates an Organism node
         """
-        self.organism.append(Organism(name=self.organism_name))
+        version_status = self._set_version()
+        if version_status == 'OK':
+            self.organism.append(Organism(name=self.organism_name))
+        else:
+            raise UserWarning('Unknown genome element')
+
 
     def create_ccp(self):
         """

@@ -823,7 +823,7 @@ class MetaCyc():
         if not os.path.isdir(path):
             raise ValueError('The path does not exist!')
         self.path = path
-        self.organism = None
+        self.organism_name = None
         self.orgid = None
         self.version = None
         self.release = None
@@ -930,7 +930,7 @@ class MetaCyc():
                     if chunks[0] == 'ORGID':
                         self.orgid = chunks[1]
                     elif chunks[0] == 'ORGANISM':
-                        self.organism = chunks[1]
+                        self.organism_name = chunks[1]
                     elif chunks[0] == 'VERSION':
                         self.version = chunks[1]
                     elif chunks[0] == 'RELEASE-DATE':

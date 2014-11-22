@@ -132,6 +132,41 @@ class Feature(Node):
 
 ###############################################################################
 
+class Chromosome(BioEntity):
+    """
+    An object of class Chromosome. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name, length, type, accesion):
+        BioEntity.__init__(self, name)
+        self.length = length
+        self.type = type
+        self.accesion = accesion
+        
+###############################################################################
+
+class Contig(BioEntity):
+    """
+    An object of class Contig. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name, length, type, accesion):
+        BioEntity.__init__(self, name)
+        self.length = length
+        self.type = type
+        self.accesion = accesion
+        
+###############################################################################
+
+class Plasmid(BioEntity):
+    """
+    An object of class Plasmid. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name, length, type, accesion):
+        BioEntity.__init__(self, name)
+        self.length = length
+        self.type = type
+        self.accesion = accesion
+
+###############################################################################
 
 class Gene(BioEntity, Feature):
     """

@@ -827,6 +827,7 @@ class MetaCyc():
         self.orgid = None
         self.version = None
         self.release = None
+        self.organism = []
         self.ccp = []
         self.genes = []
         self.edges = []
@@ -1285,6 +1286,12 @@ class MetaCyc():
             print "A list with %d BSs has been created!\n" \
                   "There were %d unmapped BSs, they were " \
                   "skipped..." % (len(self.BSs), unmapped)
+
+    def create_organism(self):
+        """
+        The method creates an Organism node
+        """
+        self.organism.append(Organism(name=self.organism_name))
 
     def create_ccp(self):
         """

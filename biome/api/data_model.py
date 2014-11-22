@@ -132,6 +132,15 @@ class Feature(Node):
 
 ###############################################################################
 
+class Organism(BioEntity):
+    """
+    An object of class Organism. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name):
+        BioEntity.__init__(self, name)
+        
+###############################################################################
+
 class Chromosome(BioEntity):
     """
     An object of class Chromosome. It inherits all methods from the class BioEntity.

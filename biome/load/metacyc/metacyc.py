@@ -1285,6 +1285,35 @@ class MetaCyc():
                   "There were %d unmapped BSs, they were " \
                   "skipped..." % (len(self.BSs), unmapped)
 
+    def create_ccp(self):
+        """
+        The method reads data in .nt-file and creates chromosomes, contigs
+        or plasmids.
+        """
+        try:
+        # reading genome sequence from .nt-file
+            for mcfile in os.listdir(self.path):
+                if mcfile.endswith(".nt"):
+                    filename = mcfile
+            f = open(self.path + filename, "rU")
+            records = list(SeqIO.parse(f, "fasta"))
+            f.close()
+        except:
+            print "There is no .nt-file!"
+
+        # Creating chromosomes, contigs or plasmids
+        for record in records:
+            if 'complete genome' in rec.description or \
+                        'complete sequence' in rec.description:
+                ccp_label = 'Chromosome'
+            elif 'Contig' in rec.description or 'contig' in rec.description:
+                ccp_label = 'Contig'
+                self.current_organism.add_labels('Partial_genome')
+            elif 'Plasmid' in rec.description or 'plasmid' in rec.description:
+                ccp_label = 'Plasmid'
+            else:
+                raise UserWarning('Unknown genome element')
+
     def transunits_dat(self):
         """
         The method creates nodes for transcription units and create links to
@@ -1294,19 +1323,6 @@ class MetaCyc():
         """
         datfile = self._read_dat('transunits.dat')
         if datfile is not None:
-            try:
-                # reading genome sequence from .nt-file
-                for mcfile in os.listdir(self.path):
-                    if mcfile.endswith(".nt"):
-                        filename = mcfile
-                f = file(self.path + filename, 'r')
-                data = f.readlines()
-                f.close()
-                genome = "".join(data[1:]).replace("\n", "")
-            except:
-                print "There is no .nt-file with genome sequence! " \
-                      "Promoters will be without sequences..."
-
             notcomplete = 0
             nocomps = 0
             elements = self.promoters + self.BSs + self.genes\

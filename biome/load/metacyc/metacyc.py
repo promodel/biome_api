@@ -1312,14 +1312,14 @@ class MetaCyc():
             if ('complete genome' in record.description or \
                         'complete sequence' in record.description) and \
                             'lasmid' not in record.description:
-                ccp_obj = self.Chromosome(name=name, length=length,
-                                          accesion=record_id, type='unknown')
+                ccp_obj = Chromosome(name=name, length=length,
+                                     accesion=record_id, type='unknown')
             elif 'ontig' in record.description:
-                ccp_obj = self.Contig(name=name, length=length,
-                                      accesion=record_id, type='unknown')
+                ccp_obj = Contig(name=name, length=length,
+                                 accesion=record_id, type='unknown')
             elif 'lasmid' in record.description:
-                ccp_obj = self.Plasmid(name=name, length=length,
-                                       accesion=record_id, type='unknown')
+                ccp_obj = Plasmid(name=name, length=length,
+                                  accesion=record_id, type='unknown')
             else:
                 raise UserWarning('Unknown genome element')
 

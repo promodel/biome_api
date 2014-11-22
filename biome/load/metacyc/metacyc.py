@@ -827,6 +827,7 @@ class MetaCyc():
         self.orgid = None
         self.version = None
         self.release = None
+        self.ccp = []
         self.genes = []
         self.edges = []
         self.xrefs = []
@@ -1300,19 +1301,31 @@ class MetaCyc():
             f.close()
         except:
             print "There is no .nt-file!"
+            return None
 
         # Creating chromosomes, contigs or plasmids
         for record in records:
-            if 'complete genome' in rec.description or \
-                        'complete sequence' in rec.description:
-                ccp_label = 'Chromosome'
-            elif 'Contig' in rec.description or 'contig' in rec.description:
-                ccp_label = 'Contig'
-                self.current_organism.add_labels('Partial_genome')
-            elif 'Plasmid' in rec.description or 'plasmid' in rec.description:
-                ccp_label = 'Plasmid'
+            name = record.description.split('|')[-1]
+            length = len(record.seq)
+            record_id = record.name.split('|')[-1]
+            print record_id, length, name
+            if ('complete genome' in record.description or \
+                        'complete sequence' in record.description) and \
+                            'lasmid' not in record.description:
+                ccp_obj = self.Chromosome(name=name, length=length,
+                                          accesion=record_id, type='unknown')
+            elif 'ontig' in record.description:
+                ccp_obj = self.Contig(name=name, length=length,
+                                      accesion=record_id, type='unknown')
+            elif 'lasmid' in record.description:
+                ccp_obj = self.Plasmid(name=name, length=length,
+                                       accesion=record_id, type='unknown')
             else:
                 raise UserWarning('Unknown genome element')
+
+            self.ccp.append(ccp_obj)
+            self.edges.append(
+                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
     def transunits_dat(self):
         """

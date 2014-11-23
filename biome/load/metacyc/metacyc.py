@@ -2050,7 +2050,7 @@ class MetaCyc():
 
         # creating nodes
         nodes_dict = {}
-        for node, i in zip(allnodes, xrange(0, len(allnodes))):
+        for i, node in enumerate(allnodes):
             mydict = node.__dict__
             for key in mydict.keys():
                 if mydict[key] is None:
@@ -2080,7 +2080,6 @@ class MetaCyc():
                 continue
 
         nx.write_graphml(graph, filename + '.graphml')
-        nx.write_gml(graph, filename + '.gml')
         return graph
 
     def organism_and_links(self, name, genome_status, parts):

@@ -823,10 +823,12 @@ class MetaCyc():
         if not os.path.isdir(path):
             raise ValueError('The path does not exist!')
         self.path = path
-        self.organism = None
+        self.organism_name = None
         self.orgid = None
         self.version = None
         self.release = None
+        self.organism = []
+        self.ccp = []
         self.genes = []
         self.edges = []
         self.xrefs = []
@@ -849,6 +851,7 @@ class MetaCyc():
         self.compartments = []
         self.pathways = []
         self.other_nodes = []
+        self.seqs = []
 
     def __repr__(self):
         if self.organism != None and self.version != None\
@@ -889,7 +892,7 @@ class MetaCyc():
         if edge not in self.edges:
             self.edges.append(edge)
 
-    def _location(self, start, end):
+    def _location(self, start, end, trans_dir=None):
         """
         Tne method takes start and end positions as an input and returns a
         correct list of the start, the end, the strand for an object based
@@ -899,12 +902,20 @@ class MetaCyc():
             raise TypeError('The start argument must be an integer!')
         if not isinstance(end, int):
             raise TypeError('The end argument must be an integer!')
-        if start < end:
-            return [start, end, 'forward']
-        elif start > end:
-            return [end, start, 'reverse']
-        else:
-            return [start, end, 'unknown']
+	if trans_dir not in ['+', '-', None]:
+            raise ValueError('The trans_dir argument must be an integer!')
+	if trans_dir == '+':
+	  return [start, end, 'forward']
+	elif trans_dir == '-':
+	  return [start, end, 'reverse']
+	else:
+	  if start < end:
+	      return [start, end, 'forward']
+	  elif start > end:
+	      return [end, start, 'reverse']
+	  else:
+	      return [start, end, 'unknown']
+	
 
     def _set_version(self):
         """
@@ -921,22 +932,23 @@ class MetaCyc():
                     if chunks[0] == 'ORGID':
                         self.orgid = chunks[1]
                     elif chunks[0] == 'ORGANISM':
-                        self.organism = chunks[1]
+                        self.organism_name = chunks[1]
                     elif chunks[0] == 'VERSION':
                         self.version = chunks[1]
                     elif chunks[0] == 'RELEASE-DATE':
                         self.release = chunks[1]
             print "Information about version and release has been set!"
+            return 'OK'
         except:
             print 'There is no information about the database version!'
-            pass
+            return 'FAIL'
 
     def extract_data(self):
         """
         Tne method uses a number of methods for data extraction.
         """
-        # Setting version information
-        self._set_version()
+        # Setting MetaCyc DB version information and creating the Organism node
+        self.create_organism()
 
         # Everything about genes; methods create nodes for genes, terms, xrefs,
         # dbs and edges between them
@@ -1061,11 +1073,15 @@ class MetaCyc():
                 # each _DatObject so it's important to use attr_check method
                 for uid in datfile.names:
                     obj = datfile.data[uid]
+                    location = self._location(
+                            obj.attr_check("LEFT_END_POSITION"), 
+                            obj.attr_check("RIGHT_END_POSITION"),
+                            obj.attr_check("TRANSCRIPTION-DIRECTION"))
                     gene = Gene(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid),
-                                start=obj.attr_check("LEFT_END_POSITION"),
-                                end=obj.attr_check("RIGHT_END_POSITION"),
-                                strand=obj.attr_check("TRANSCRIPTION_DIRECTION"),
+                                start=location[0],
+                                end=location[1],
+                                strand=location[2],
                                 product=obj.attr_check("PRODUCT"))
                     self.genes.append(gene)
                     self.name_to_terms(gene)
@@ -1205,15 +1221,18 @@ class MetaCyc():
         """
         datfile = self._read_dat('terminators.dat')
         if datfile is not None:
+            unmapped =0
             for uid in datfile.names:
                 obj = datfile.data[uid]
                 if hasattr(obj, "UNMAPPED_COMPONENT_OF"):
+                    unmapped += 1
                     continue
                 ter = Terminator(uid=uid, start=obj.LEFT_END_POSITION,
                                  end=obj.RIGHT_END_POSITION)
                 self.terminators.append(ter)
-            print "A list with %d terminators has been " \
-                  "created!" % len(self.terminators)
+            print "A list with %d terminators has been created!\n" \
+                  "There were %d unmapped elements, they were " \
+                  "skipped..." % (len(self.terminators), unmapped)
 
     def promoters_dat(self):
         """
@@ -1270,6 +1289,56 @@ class MetaCyc():
                   "There were %d unmapped BSs, they were " \
                   "skipped..." % (len(self.BSs), unmapped)
 
+    def create_organism(self):
+        """
+        The method creates an Organism node
+        """
+        version_status = self._set_version()
+        if version_status == 'OK':
+            self.organism.append(Organism(name=self.organism_name))
+        else:
+            raise UserWarning('There is no name in self.organism_name!')
+
+    def create_ccp(self):
+        """
+        The method reads data in .nt-file and creates chromosomes, contigs
+        or plasmids.
+        """
+        try:
+        # reading genome sequence from .nt-file
+            for mcfile in os.listdir(self.path):
+                if mcfile.endswith(".nt"):
+                    filename = mcfile
+            f = open(self.path + filename, "rU")
+            records = list(SeqIO.parse(f, "fasta"))
+            f.close()
+        except:
+            raise UserWarning("There is no .nt-file!")
+
+        # Creating chromosomes, contigs or plasmids
+        for record in records:
+            name = record.description.split('|')[-1]
+            length = len(record.seq)
+            record_id = record.name.split('|')[-1]
+            #print record_id, length, name
+            if ('complete genome' in record.description or \
+                        'complete sequence' in record.description) and \
+                            'lasmid' not in record.description:
+                ccp_obj = Chromosome(name=name, length=length,
+                                     accesion=record_id, type='unknown')
+            elif 'ontig' in record.description:
+                ccp_obj = Contig(name=name, length=length,
+                                 accesion=record_id, type='unknown')
+            elif 'lasmid' in record.description:
+                ccp_obj = Plasmid(name=name, length=length,
+                                  accesion=record_id, type='unknown')
+            else:
+                raise UserWarning('Unknown genome element')
+
+            self.ccp.append(ccp_obj)
+            self.edges.append(
+                CreateEdge(ccp_obj, self.organism[0], 'PART_OF'))
+
     def transunits_dat(self):
         """
         The method creates nodes for transcription units and create links to
@@ -1279,19 +1348,6 @@ class MetaCyc():
         """
         datfile = self._read_dat('transunits.dat')
         if datfile is not None:
-            try:
-                # reading genome sequence from .nt-file
-                for mcfile in os.listdir(self.path):
-                    if mcfile.endswith(".nt"):
-                        filename = mcfile
-                f = file(self.path + filename, 'r')
-                data = f.readlines()
-                f.close()
-                genome = "".join(data[1:]).replace("\n", "")
-            except:
-                print "There is no .nt-file with genome sequence! " \
-                      "Promoters will be without sequences..."
-
             notcomplete = 0
             nocomps = 0
             elements = self.promoters + self.BSs + self.genes\
@@ -1374,6 +1430,7 @@ class MetaCyc():
                                     smiles=obj.attr_check("SMILES"),
                                     type=obj.attr_check("TYPES"))
                 self.compounds.append(compound)
+                self.name_to_terms(compound)
 
                 # creating Terms for compounds name synonyms
                 obj.links_to_synonyms(compound, self)
@@ -1421,7 +1478,6 @@ class MetaCyc():
                                           name=obj.attr_check("COMMON_NAME", uid),
                                           molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.polypeptides.append(peptide)
-                    self.name_to_terms(peptide)
 
                 # Oligopeptides
                 elif len(set(types + oligo)) != len(oligo) + len(types):
@@ -1429,13 +1485,12 @@ class MetaCyc():
                                            name=obj.attr_check("COMMON_NAME", uid),
                                            molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.oligopeptides.append(peptide)
-                    self.name_to_terms(peptide)
-
                 else:
                     warnings.warn("Unexpected peptide types! "
                                   "Let's skip it... \nThe object uid %s" % uid)
                     continue
-
+                self.name_to_terms(peptide)
+                
                 # creating Terms for peptide name synonyms
                 obj.links_to_synonyms(peptide, self)
 
@@ -1773,7 +1828,8 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
-
+                self.name_to_terms(pathway)                
+               
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
                 obj.links_to_reactions(pathway, self)
@@ -1792,6 +1848,7 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
+                self.name_to_terms(pathway) 
 
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
@@ -1800,6 +1857,7 @@ class MetaCyc():
 
                 # creating Terms for pathway name synonyms
                 obj.links_to_synonyms(pathway, self)
+                
             print "A list with %d pathways has been " \
                   "created!" % len(self.pathways)
 
@@ -1978,6 +2036,7 @@ class MetaCyc():
         It might be very slow for objects with a great number of edges.
         SHOULD BE REWRITTEN!
         """
+        j = 0
         allnodes = self.genes + self.xrefs + self.dbs + self.terms + \
                    self.rnas + self.terminators + self.promoters + \
                    self.BSs + self.TUs + self.compounds + \
@@ -2031,7 +2090,7 @@ class MetaCyc():
                 self.oligopeptides + self.polypeptides + self.proteins + \
                 self.BSs + self.TUs + self.complexes + self.compartments
         for node in nodes:
-            self.edges.append(CreateEdge(organism, node, 'PART_OF'))
+            self.edges.append(CreateEdge(node, organism, 'PART_OF'))
 
 ###############################################################################
 

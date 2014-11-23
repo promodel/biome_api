@@ -107,15 +107,15 @@ Let's load the module:
 
     >>> obj = m.Gene(name='gene', start=1, end=1000, strand='forward')
     >>> obj.subclasses()
-    ['Gene', 'BioEntity', 'Node', 'Feature']
+    ['Gene', 'BioEntity', 'Feature']
     >>> obj.labels
-    ':Gene:BioEntity:Node:Feature'
-    >>> obj = m.rRNA(name='rRNA', start=1, end=1000, strand='forward')
+    ':Gene:BioEntity:Feature'
+    >>> obj = m.rRNA(name='rRNA')
     >>> obj.subclasses()
-    ['rRNA', 'RNA', 'BioEntity', 'Node', 'Feature']
+    ['rRNA', 'RNA', 'BioEntity']
     >>> obj = m.Attenuation()
     >>> obj.subclasses()
-    ['Attenuation', 'RegulationEvent', 'Node', 'Binding']
+    ['Attenuation', 'RegulationEvent', 'Binding']
     
 ``Term`` class
 -------------------

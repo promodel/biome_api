@@ -86,7 +86,8 @@ class Node():
         The method specifies a label attribute (string of class and all
         subclasses).
         """
-        subclasses = [i.__name__ for i in ins.getmro(self.__class__)]
+        subclasses = [i.__name__ for i in ins.getmro(self.__class__) 
+		      if i.__name__ != 'Node']
         return subclasses
 
 ###############################################################################
@@ -131,6 +132,50 @@ class Feature(Node):
 
 ###############################################################################
 
+class Organism(BioEntity):
+    """
+    An object of class Organism. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name):
+        BioEntity.__init__(self, name)
+        
+###############################################################################
+
+class Chromosome(BioEntity):
+    """
+    An object of class Chromosome. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name, length, type, accesion):
+        BioEntity.__init__(self, name)
+        self.length = length
+        self.type = type
+        self.accesion = accesion
+        
+###############################################################################
+
+class Contig(BioEntity):
+    """
+    An object of class Contig. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name, length, type, accesion):
+        BioEntity.__init__(self, name)
+        self.length = length
+        self.type = type
+        self.accesion = accesion
+        
+###############################################################################
+
+class Plasmid(BioEntity):
+    """
+    An object of class Plasmid. It inherits all methods from the class BioEntity.
+    """
+    def __init__(self, name, length, type, accesion):
+        BioEntity.__init__(self, name)
+        self.length = length
+        self.type = type
+        self.accesion = accesion
+
+###############################################################################
 
 class Gene(BioEntity, Feature):
     """
@@ -166,6 +211,7 @@ class Term(Node):
             raise TypeError('The text argument must be a string!')
         Node.__init__(self)
         self.text = text
+        self.source = None
 
 ###############################################################################
 
@@ -179,6 +225,7 @@ class XRef(Node):
             raise TypeError('The id argument must be a string!')
         Node.__init__(self)
         self.id = id
+        self.source = None
 
 ###############################################################################
 
@@ -194,6 +241,7 @@ class DB(Node):
         Node.__init__(self)
         self.name = name
         self.link = link
+        self.source = None
 
 ###############################################################################
 
@@ -566,19 +614,6 @@ class Compartment(BioEntity):
         BioEntity.__init__(self, name)
         self.name = name
         self.uid = uid
-
-###############################################################################
-
-class Organism(Node):
-    """
-    An object of class Organism. It inherits all methods from the Node
-    class.
-    """
-    def __init__(self, name, genome_status, parts=1):
-        Node.__init__(self)
-        self.name = name
-        self.genome_status = genome_status
-        self.parts = parts
 
 ###############################################################################
 

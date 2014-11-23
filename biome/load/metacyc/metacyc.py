@@ -851,6 +851,7 @@ class MetaCyc():
         self.compartments = []
         self.pathways = []
         self.other_nodes = []
+        self.seqs = []
 
     def __repr__(self):
         if self.organism != None and self.version != None\
@@ -1296,8 +1297,7 @@ class MetaCyc():
         if version_status == 'OK':
             self.organism.append(Organism(name=self.organism_name))
         else:
-            raise UserWarning('Unknown genome element')
-
+            raise UserWarning('There is no name in self.organism_name!')
 
     def create_ccp(self):
         """
@@ -1313,15 +1313,14 @@ class MetaCyc():
             records = list(SeqIO.parse(f, "fasta"))
             f.close()
         except:
-            print "There is no .nt-file!"
-            return None
+            raise UserWarning("There is no .nt-file!")
 
         # Creating chromosomes, contigs or plasmids
         for record in records:
             name = record.description.split('|')[-1]
             length = len(record.seq)
             record_id = record.name.split('|')[-1]
-            print record_id, length, name
+            #print record_id, length, name
             if ('complete genome' in record.description or \
                         'complete sequence' in record.description) and \
                             'lasmid' not in record.description:
@@ -1338,7 +1337,7 @@ class MetaCyc():
 
             self.ccp.append(ccp_obj)
             self.edges.append(
-                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+                CreateEdge(ccp_obj, self.organism[0], 'PART_OF'))
 
     def transunits_dat(self):
         """

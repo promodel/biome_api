@@ -823,11 +823,11 @@ class MetaCyc():
         if not os.path.isdir(path):
             raise ValueError('The path does not exist!')
         self.path = path
-        self.organism_name = None
+        self.name = name
         self.orgid = None
         self.version = None
         self.release = None
-        self.organism = []
+        self.organism = Organism(name = self.name)
         self.ccp = []
         self.genes = []
         self.edges = []
@@ -851,7 +851,7 @@ class MetaCyc():
         self.compartments = []
         self.pathways = []
         self.other_nodes = []
-        self.seqs = []
+        self.seqs = {}
 
     def __repr__(self):
         if self.organism != None and self.version != None\
@@ -946,8 +946,8 @@ class MetaCyc():
         """
         Tne method uses a number of methods for data extraction.
         """
-        # Setting MetaCyc DB version information and creating the Organism node
-        self.create_organism()
+        # Setting MetaCyc DB version information.
+        self._set_version()
 
         # Everything about genes; methods create nodes for genes, terms, xrefs,
         # dbs and edges between them

@@ -940,6 +940,44 @@ class MetaCyc():
         except:
             print 'There is no information about the database version!'
 
+    def create_ccp(self):
+        """
+        The method reads data in .nt-file and creates chromosomes, contigs
+        or plasmids.
+        """
+        try:
+        # reading genome sequence from .nt-file
+            for mcfile in os.listdir(self.path):
+                if mcfile.endswith(".nt"):
+                    filename = mcfile
+            f = open(self.path + filename, "rU")
+            records = list(SeqIO.parse(f, "fasta"))
+            f.close()
+        except:
+            raise UserWarning("There is no .nt-file!")
+
+        # Creating chromosomes, contigs or plasmids
+        for record in records:
+            name = record.description.split('|')[-1]
+            length = len(record.seq)
+            record_id = record.name.split('|')[-1]
+            #print record_id, length, name
+            if ('complete genome' in record.description or \
+                        'complete sequence' in record.description) and \
+                            'lasmid' not in record.description:
+                ccp_obj = Chromosome(name=name, length=length,
+                                     accesion=record_id, type='unknown')
+            elif 'lasmid' in record.description:
+                ccp_obj = Plasmid(name=name, length=length,
+                                  accesion=record_id, type='unknown')
+            else:
+                ccp_obj = Contig(name=name, length=length,
+                                 accesion=record_id, type='unknown')
+
+            self.ccp.append(ccp_obj)
+            self.edges.append(
+                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+
     def extract_data(self):
         """
         Tne method uses a number of methods for data extraction.
@@ -1288,44 +1326,6 @@ class MetaCyc():
             print "A list with %d BSs has been created!\n" \
                   "There were %d unmapped BSs, they were " \
                   "skipped..." % (len(self.BSs), unmapped)
-
-    def create_ccp(self):
-        """
-        The method reads data in .nt-file and creates chromosomes, contigs
-        or plasmids.
-        """
-        try:
-        # reading genome sequence from .nt-file
-            for mcfile in os.listdir(self.path):
-                if mcfile.endswith(".nt"):
-                    filename = mcfile
-            f = open(self.path + filename, "rU")
-            records = list(SeqIO.parse(f, "fasta"))
-            f.close()
-        except:
-            raise UserWarning("There is no .nt-file!")
-
-        # Creating chromosomes, contigs or plasmids
-        for record in records:
-            name = record.description.split('|')[-1]
-            length = len(record.seq)
-            record_id = record.name.split('|')[-1]
-            #print record_id, length, name
-            if ('complete genome' in record.description or \
-                        'complete sequence' in record.description) and \
-                            'lasmid' not in record.description:
-                ccp_obj = Chromosome(name=name, length=length,
-                                     accesion=record_id, type='unknown')
-            elif 'lasmid' in record.description:
-                ccp_obj = Plasmid(name=name, length=length,
-                                  accesion=record_id, type='unknown')
-            else:
-                ccp_obj = Contig(name=name, length=length,
-                                 accesion=record_id, type='unknown')
-
-            self.ccp.append(ccp_obj)
-            self.edges.append(
-                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
     def transunits_dat(self):
         """
@@ -2038,7 +2038,7 @@ class MetaCyc():
 
         # creating nodes
         nodes_dict = {}
-        for node, i in zip(allnodes, xrange(0, len(allnodes))):
+        for node, i in enumerate(allnodes, xrange(0, len(allnodes))):
             mydict = node.__dict__
             for key in mydict.keys():
                 if mydict[key] is None:

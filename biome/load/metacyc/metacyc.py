@@ -817,7 +817,7 @@ class MetaCyc():
     """
     Class for data taken from the MetaCyc database.
     """
-    def __init__(self, path=''):
+    def __init__(self, path='', name='unknown'):
         if not isinstance(path, basestring):
             raise TypeError('The path argument must be a string!')
         if not os.path.isdir(path):
@@ -915,7 +915,6 @@ class MetaCyc():
 	      return [end, start, 'reverse']
 	  else:
 	      return [start, end, 'unknown']
-	
 
     def _set_version(self):
         """

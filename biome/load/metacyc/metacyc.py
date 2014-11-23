@@ -1316,18 +1316,16 @@ class MetaCyc():
                             'lasmid' not in record.description:
                 ccp_obj = Chromosome(name=name, length=length,
                                      accesion=record_id, type='unknown')
-            elif 'ontig' in record.description:
-                ccp_obj = Contig(name=name, length=length,
-                                 accesion=record_id, type='unknown')
             elif 'lasmid' in record.description:
                 ccp_obj = Plasmid(name=name, length=length,
                                   accesion=record_id, type='unknown')
             else:
-                raise UserWarning('Unknown genome element')
+                ccp_obj = Contig(name=name, length=length,
+                                 accesion=record_id, type='unknown')
 
             self.ccp.append(ccp_obj)
             self.edges.append(
-                CreateEdge(ccp_obj, self.organism[0], 'PART_OF'))
+                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
     def transunits_dat(self):
         """

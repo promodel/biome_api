@@ -937,10 +937,8 @@ class MetaCyc():
                     elif chunks[0] == 'RELEASE-DATE':
                         self.release = chunks[1]
             print "Information about version and release has been set!"
-            return 'OK'
         except:
             print 'There is no information about the database version!'
-            return 'FAIL'
 
     def extract_data(self):
         """
@@ -948,6 +946,9 @@ class MetaCyc():
         """
         # Setting MetaCyc DB version information.
         self._set_version()
+
+        # Creating Chromosomes, Contigs and Plasmids
+        self.create_ccp()
 
         # Everything about genes; methods create nodes for genes, terms, xrefs,
         # dbs and edges between them
@@ -1287,16 +1288,6 @@ class MetaCyc():
             print "A list with %d BSs has been created!\n" \
                   "There were %d unmapped BSs, they were " \
                   "skipped..." % (len(self.BSs), unmapped)
-
-    def create_organism(self):
-        """
-        The method creates an Organism node
-        """
-        version_status = self._set_version()
-        if version_status == 'OK':
-            self.organism.append(Organism(name=self.organism_name))
-        else:
-            raise UserWarning('There is no name in self.organism_name!')
 
     def create_ccp(self):
         """

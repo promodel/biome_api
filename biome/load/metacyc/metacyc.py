@@ -1221,7 +1221,7 @@ class MetaCyc():
 
                         # let's check that genes with the same id have
                         # the same name
-                        #obj.name_check(gene)
+                        obj.name_check(gene)
 
                         # let's check that genes with the same id have
                         # the same location
@@ -1294,7 +1294,7 @@ class MetaCyc():
             for uid in datfile.names:
                 obj = datfile.data[uid]
 
-                # we skip all modified rnas records
+                # skipping all modified rnas records
                 if hasattr(obj, "UNMODIFIED_FORM"):
                     continue
                 if obj.TYPES[:6] == 'Charge':
@@ -1304,7 +1304,7 @@ class MetaCyc():
                 gene = [g for g in self.genes
                         if g.uid == obj.GENE or g.name == obj.GENE]
 
-                # creating rna object (3 types)
+                # creating RNA object (3 types)
                 if len(gene) == 1:
                     gene = gene[0]
                     if obj.TYPES[-5:] == '-RNAs':
@@ -1322,15 +1322,23 @@ class MetaCyc():
                     continue
 
                 self.rnas.append(rna)
+                # creating a Term for the RNA name
+                # (RNA) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(rna)
 
                 # creating Terms for RNAs name synonyms
+                # (RNA) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(rna, self)
 
-                # creating edges gene -[ENCODES]-> rna
+                # creating edges (Gene) -[ENCODES]-> (RNA)
                 self.edges.append(CreateEdge(gene, rna, 'ENCODES'))
 
+                # creating an edge to the Organism node
+                # (RNA) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(rna, self)
+
                 # creating a node for rna modification (if it exists)
+                # (RNA) -[:FORMS]-> (Unspecified)
                 if hasattr(obj, "MODIFIED_FORM"):
                     uid = obj.MODIFIED_FORM.replace("|", "")
                     mod_obj = datfile.data[uid]
@@ -1339,8 +1347,12 @@ class MetaCyc():
                     self.other_nodes.append(modification)
                     self.name_to_terms(modification)
 
-                    # creating edges rna -[FORMS]-> modification
+                    # creating edges
                     self.edges.append(CreateEdge(rna, modification, 'FORMS'))
+
+                    # creating an edge to the Organism node
+                    # (Unspecified) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(modification, self)
 
             print "A list with %d RNAs has been created!" % len(self.rnas)
             print "No genes in the database for %d RNAs." % notfound

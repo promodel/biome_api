@@ -54,7 +54,7 @@ class _DatSet():
     def __str__(self):
         return "_DatSet constructed for %s file" % self.filename
 
-    def readfile(self, split=" - "):
+    def readfile(self, sep=" - ", dict_keys='UNIQUE-ID'):
         """
         The methods works with dat-files format.
         """
@@ -67,8 +67,8 @@ class _DatSet():
             chunk = _DatObject()
             i = 0
             for line in data:
-                if line[:9] == 'UNIQUE-ID':
-                    uid = line.replace("\n", '').split(split)[1]
+                if line[:9] == dict_keys:
+                    uid = line.replace("\n", '').split(sep)[1]
                     self.names.append(uid)
                 elif line[:2] == '//':
                     chunk.formatting()
@@ -77,14 +77,14 @@ class _DatSet():
                 elif line[:1] == '/':
                     pass
                 else:
-                    sp_line = line.replace('\n', '').split(split)
+                    sp_line = line.replace('\n', '').split(sep)
                     attr = make_name(sp_line[0])
                     if attr == "RIGHT" or attr == "LEFT":
-                        sp_nextline = data[i+1].replace('\n', '').split(split)
+                        sp_nextline = data[i+1].replace('\n', '').split(sep)
 
                         # if it is the end of file
                         if len(data) != i + 2:
-                            sp_nextnextline = data[i+2].replace('\n', '').split(split)
+                            sp_nextnextline = data[i+2].replace('\n', '').split(sep)
                         else:
                             sp_nextnextline = [None]
 
@@ -817,13 +817,14 @@ class MetaCyc():
     """
     Class for data taken from the MetaCyc database.
     """
-    def __init__(self, path='', name='unknown'):
+    def __init__(self, path='', name='unknown', refseq='unknown'):
         if not isinstance(path, basestring):
             raise TypeError('The path argument must be a string!')
         if not os.path.isdir(path):
             raise ValueError('The path does not exist!')
         self.path = path
         self.name = name
+        self.refseq = refseq
         self.orgid = None
         self.version = None
         self.release = None
@@ -902,19 +903,19 @@ class MetaCyc():
             raise TypeError('The start argument must be an integer!')
         if not isinstance(end, int):
             raise TypeError('The end argument must be an integer!')
-	if trans_dir not in ['+', '-', None]:
-            raise ValueError('The trans_dir argument must be an integer!')
-	if trans_dir == '+':
-	  return [start, end, 'forward']
-	elif trans_dir == '-':
-	  return [start, end, 'reverse']
-	else:
-	  if start < end:
-	      return [start, end, 'forward']
-	  elif start > end:
-	      return [end, start, 'reverse']
-	  else:
-	      return [start, end, 'unknown']
+        if trans_dir not in ['+', '-', None]:
+                raise ValueError('The trans_dir argument must be an integer!')
+        if trans_dir == '+':
+          return [start, end, 'forward']
+        elif trans_dir == '-':
+          return [start, end, 'reverse']
+        else:
+          if start < end:
+              return [start, end, 'forward']
+          elif start > end:
+              return [end, start, 'reverse']
+          else:
+              return [start, end, 'unknown']
 
     def _set_version(self):
         """
@@ -945,38 +946,44 @@ class MetaCyc():
         The method reads data in .nt-file and creates chromosomes, contigs
         or plasmids.
         """
-        try:
-        # reading genome sequence from .nt-file
-            for mcfile in os.listdir(self.path):
-                if mcfile.endswith(".nt"):
-                    filename = mcfile
-            f = open(self.path + filename, "rU")
-            records = list(SeqIO.parse(f, "fasta"))
-            f.close()
-        except:
-            raise UserWarning("There is no .nt-file!")
+        input_path = self.path.replace('data', 'input')
+        org_elements = _DatSet(input_path)
+        org_elements.readfile(sep='\t', dict_keys='ID')
 
-        # Creating chromosomes, contigs or plasmids
-        for record in records:
-            name = record.description.split('|')[-1]
-            length = len(record.seq)
-            record_id = record.name.split('|')[-1]
-            #print record_id, length, name
-            if ('complete genome' in record.description or \
-                        'complete sequence' in record.description) and \
-                            'lasmid' not in record.description:
-                ccp_obj = Chromosome(name=name, length=length,
-                                     accesion=record_id, type='unknown')
-            elif 'lasmid' in record.description:
-                ccp_obj = Plasmid(name=name, length=length,
-                                  accesion=record_id, type='unknown')
-            else:
-                ccp_obj = Contig(name=name, length=length,
-                                 accesion=record_id, type='unknown')
 
-            self.ccp.append(ccp_obj)
-            self.edges.append(
-                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+
+        # try:
+        # # reading genome sequence from .nt-file
+        #     for mcfile in os.listdir(self.path):
+        #         if mcfile.endswith(".nt"):
+        #             filename = mcfile
+        #     f = open(self.path + filename, "rU")
+        #     records = list(SeqIO.parse(f, "fasta"))
+        #     f.close()
+        # except:
+        #     raise UserWarning("There is no .nt-file!")
+        #
+        # # Creating chromosomes, contigs or plasmids
+        # for record in records:
+        #     name = record.description.split('|')[-1]
+        #     length = len(record.seq)
+        #     record_id = record.name.split('|')[-1]
+        #     #print record_id, length, name
+        #     if ('complete genome' in record.description or \
+        #                 'complete sequence' in record.description) and \
+        #                     'lasmid' not in record.description:
+        #         ccp_obj = Chromosome(name=name, length=length,
+        #                              accesion=record_id, type='unknown')
+        #     elif 'lasmid' in record.description:
+        #         ccp_obj = Plasmid(name=name, length=length,
+        #                           accesion=record_id, type='unknown')
+        #     else:
+        #         ccp_obj = Contig(name=name, length=length,
+        #                          accesion=record_id, type='unknown')
+        #
+        #     self.ccp.append(ccp_obj)
+        #     self.edges.append(
+        #         CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
     def extract_data(self):
         """

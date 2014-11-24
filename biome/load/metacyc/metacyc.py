@@ -842,7 +842,7 @@ class _DatObject():
             raise TypeError("The node argument must be of the Feature class or "
                             "derived classes!")
 
-    def link_to_organism(self, node, metacyc):
+    def links_to_organism(self, node, metacyc):
         """
         The method makes edges between a BioEntity (and a few other node
         classes) and an Organism node.
@@ -1188,16 +1188,26 @@ class MetaCyc():
                                 strand=location[2],
                                 product=obj.attr_check("PRODUCT"))
                     self.genes.append(gene)
+
+                    # creating a Term for gene name
+                    # (Gene) -[:HAS_NAME]-> (Term)
                     self.name_to_terms(gene)
 
                     # creating Terms for gene name synonyms
+                    # (Gene) -[:HAS_NAME]-> (Term)
                     obj.links_to_synonyms(gene, self)
 
                     # creating XRef and DB nodes for gene name dblinks
+                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB)
                     obj.links_to_db(gene, self)
 
                     # creating edges to CCP
+                    # (Gene) -[:PART_OF]-> (CCP)
                     obj.feature_ccp_location(gene, self)
+
+                    # creating edges to the Organism node
+                    # (Gene) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(gene, self)
 
                 print "A list with %d genes have been " \
                       "created!" % len(self.genes)
@@ -1218,13 +1228,20 @@ class MetaCyc():
                         obj.location_check(gene)
 
                         # creating Terms for gene name synonyms
+                        # (Gene) -[:HAS_NAME]-> (Term)
                         obj.links_to_synonyms(gene, self)
 
                         # creating XRef and DB nodes for gene name dblinks
+                        # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB)
                         obj.links_to_db(gene, self)
 
                         # creating edges to CCP
+                        # (Gene) -[:PART_OF]-> (CCP)
                         obj.feature_ccp_location(gene, self)
+
+                        # creating edges to the Organism node
+                        # (Gene) -[:PART_OF]-> (Organism)
+                        obj.links_to_organism(gene, self)
 
                     except:
                         pass

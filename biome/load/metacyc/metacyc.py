@@ -965,7 +965,7 @@ class MetaCyc():
             except:
                 UserWarning('There is no %s!') % gb_file
 
-            # storing sequences
+            # storing sequences in seqs dictionary
             self.seqs[elem_id] = gb_record.sequence
 
             # creating chromosomes, contigs, plasmids
@@ -973,6 +973,7 @@ class MetaCyc():
             length = int(gb_record.size)
             type = gb_record.residue_type.split(' ')[-1] # circular/linear
 
+            # guessing what type of CCP the record is by its definition
             if ('complete genome' in gb_record.definition or \
                          'complete sequence' in gb_record.definition) and \
                              'lasmid' not in gb_record.definition:

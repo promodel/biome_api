@@ -2305,15 +2305,6 @@ class MetaCyc():
         nx.write_gml(graph, filename + '.gml')
         return graph
 
-    def organism_and_links(self, name, genome_status, parts):
-        organism = Organism(name=name, genome_status=genome_status, parts=parts)
-        self.other_nodes.append(organism)
-        nodes = self.genes + self.rnas + self.promoters + self.terminators + \
-                self.oligopeptides + self.polypeptides + self.proteins + \
-                self.BSs + self.TUs + self.complexes + self.compartments
-        for node in nodes:
-            self.edges.append(CreateEdge(node, organism, 'PART_OF'))
-
 ###############################################################################
 
 

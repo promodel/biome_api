@@ -958,8 +958,6 @@ class MetaCyc():
 
         for elem_id in org_elements.names:
             elem = org_elements.data[elem_id]
-            if elem_id[:2] == 'NC':
-                refseq = elem_id
             try:
                 gb_file = elem.ANNOT_FILE
                 parser = GenBank.RecordParser()
@@ -973,24 +971,34 @@ class MetaCyc():
             # creating chromosomes, contigs, plasmids
             name = gb_record.definition
             length = int(gb_record.size)
-            type = record.residue_type.split(' ')[-1] # circular/linear
-            
+            type = gb_record.residue_type.split(' ')[-1] # circular/linear
+
             if ('complete genome' in gb_record.definition or \
                          'complete sequence' in gb_record.definition) and \
                              'lasmid' not in gb_record.definition:
-                 ccp_obj = Chromosome(name=name, length=length, type='unknown')
+                 ccp_obj = Chromosome(name=name, length=length, type=type)
             elif 'lasmid' in gb_record.definition:
-                 ccp_obj = Plasmid(name=name, length=length, type='unknown')
+                 ccp_obj = Plasmid(name=name, length=length, type=type)
             else:
-                 ccp_obj = Contig(name=name, length=length, type='unknown')
+                 ccp_obj = Contig(name=name, length=length, type=type)
 
             self.ccp.append(ccp_obj)
+
+            # creating edges [CCP]-[:PART_OF]->(Organism)
             self.edges.append(
                 CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
+            # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK]->(DB=GenBank)
+            refseq = XRef(id=gb_record.locus)
+            self.xrefs.append(refseq)
+            self.edges.append(
+                CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
+            gb = self.db_checker('GenBank')
+            self.edges.append(
+                CreateEdge(refseq, gb, 'LINK'))
+
         # renaming Organism
-        if self.organism.name == 'unknown':
-            self.organism.name == gb_record.organism
+        self.organism.name = gb_record.organism
 
     def extract_data(self):
         """

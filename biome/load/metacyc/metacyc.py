@@ -54,7 +54,7 @@ class _DatSet():
     def __str__(self):
         return "_DatSet constructed for %s file" % self.filename
 
-    def readfile(self):
+    def readfile(self, split=" - "):
         """
         The methods works with dat-files format.
         """
@@ -68,7 +68,7 @@ class _DatSet():
             i = 0
             for line in data:
                 if line[:9] == 'UNIQUE-ID':
-                    uid = line.replace("\n", '').split(" - ")[1]
+                    uid = line.replace("\n", '').split(split)[1]
                     self.names.append(uid)
                 elif line[:2] == '//':
                     chunk.formatting()
@@ -77,14 +77,14 @@ class _DatSet():
                 elif line[:1] == '/':
                     pass
                 else:
-                    sp_line = line.replace('\n', '').split(" - ")
+                    sp_line = line.replace('\n', '').split(split)
                     attr = make_name(sp_line[0])
                     if attr == "RIGHT" or attr == "LEFT":
-                        sp_nextline = data[i+1].replace('\n', '').split(" - ")
+                        sp_nextline = data[i+1].replace('\n', '').split(split)
 
                         # if it is the end of file
                         if len(data) != i + 2:
-                            sp_nextnextline = data[i+2].replace('\n', '').split(" - ")
+                            sp_nextnextline = data[i+2].replace('\n', '').split(split)
                         else:
                             sp_nextnextline = [None]
 

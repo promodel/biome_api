@@ -847,7 +847,7 @@ class _DatObject():
         The method makes edges between a BioEntity (and a few other node
         classes) and an Organism node.
         """
-        if isinstance(node, BioEntity):
+        if isinstance(node, Node):
             if isinstance(metacyc, MetaCyc):
                 metacyc.edges.append(
                             CreateEdge(node, metacyc.organism, 'PART_OF'))
@@ -855,7 +855,7 @@ class _DatObject():
                 raise TypeError("The metacyc argument must be of the MetaCyc "
                                     "class!")
         else:
-            raise TypeError("The node argument must be of the Feature class"
+            raise TypeError("The node argument must be of the Node class"
                             " or derived classes!")
 
 ###############################################################################
@@ -1322,6 +1322,7 @@ class MetaCyc():
                     continue
 
                 self.rnas.append(rna)
+
                 # creating a Term for the RNA name
                 # (RNA) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(rna)
@@ -1363,9 +1364,11 @@ class MetaCyc():
         """
         datfile = self._read_dat('terminators.dat')
         if datfile is not None:
-            unmapped =0
+            unmapped = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
+
+                # skippin unmapped terminators
                 if hasattr(obj, "UNMAPPED_COMPONENT_OF"):
                     unmapped += 1
                     continue
@@ -1374,6 +1377,7 @@ class MetaCyc():
                 self.terminators.append(ter)
 
                 # creating edges to CCP
+                # (Terminator) -[:PART_OF]-> (CCP)
                 obj.feature_ccp_location(ter, self)
 
             print "A list with %d terminators has been created!\n" \
@@ -1399,10 +1403,18 @@ class MetaCyc():
                                tss=obj.ABSOLUTE_PLUS_1_POS,
                                strand="unknown", seq=None)
                 self.promoters.append(pro)
+
+                # creating a Term for the promoter name
+                # (Promoter) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(pro)
 
                 # creating edges to CCP
+                # (Promoter) -[:PART_OF]-> (CCP)
                 obj.feature_ccp_location(pro, self)
+
+                # creating an edge to the Organism node
+                # (Promoter) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(pro, self)
 
             print "A list with %d promoters has been created!\n" \
                   "There were %d unmapped elements, they were " \

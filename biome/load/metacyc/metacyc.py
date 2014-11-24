@@ -2150,7 +2150,7 @@ class MetaCyc():
                 self.edges.append(CreateEdge(protein[0], transporter, 'IS_A'))
 
                 # creating an edge to the Organism node
-                # (Compartment) -[:PART_OF]-> (Organism)
+                # (Transporter) -[:PART_OF]-> (Organism)
                 obj.links_to_organism(transporter, self)
 
             transnum = len([p for p in self.proteins
@@ -2193,10 +2193,10 @@ class MetaCyc():
 
         # constructing tables
         # Elements of the Genome
-        table1 = tabulate([[len(self.genes), len(self.rnas),
+        table1 = tabulate([[len(self.ccp), len(self.genes), len(self.rnas),
                             len(self.promoters), len(self.terminators),
                             len(self.BSs), len(self.TUs)]],
-                          headers=("Genes", "RNAs", "Promoters", "Terminators",
+                          headers=("CCP", "Genes", "RNAs", "Promoters", "Terminators",
                                    "DNA Binding sites", "TUs"),
                           tablefmt="grid")
 

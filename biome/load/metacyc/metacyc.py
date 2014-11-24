@@ -1,6 +1,6 @@
 from ...api import *
-from Bio import SeqIO
-from Bio import GenBank
+from Bio import SeqIO, GenBank
+from Bio.Seq import Seq
 from tabulate import tabulate
 import networkx as nx
 
@@ -817,6 +817,36 @@ class _DatObject():
             raise TypeError("The metacyc argument must be of the MetaCyc "
                             "class!")
 
+    def feature_ccp_location(self, node, metacyc, return_seq=False):
+        """
+        The method make edges between a Feature and a CCP it locates on.
+        """
+        if isinstance(node, Feature):
+            if isinstance(metacyc, MetaCyc):
+                flag = 0
+                component_of = self.COMPONENT_OF
+                for key in metacyc.seqs.keys():
+                    if key in component_of:
+                        ccp = [obj for obj in metacyc.ccp
+                               if obj.name == metacyc.seqs[key][0]][0]
+                        metacyc.edges.append(
+                            CreateEdge(node, ccp, 'PART_OF'))
+                        flagg = 1
+                        break
+                if flag == 0:
+                    UserWarning('Unmapped component!')
+                if return_seq == True:
+                    subseq = metacyc.seqs[key][node.start, node.end]
+                    if node.strand == 'reverse':
+                        seq = str(Seq(subseq).reverse_complement())
+                    return seq
+            else:
+                raise TypeError("The metacyc argument must be of the MetaCyc "
+                                    "class!")
+        else:
+            raise TypeError("The node argument must be of the Feature class or "
+                            "derived classes!")
+
 ###############################################################################
 
 
@@ -910,18 +940,18 @@ class MetaCyc():
         if not isinstance(end, int):
             raise TypeError('The end argument must be an integer!')
         if trans_dir not in ['+', '-', None]:
-                raise ValueError('The trans_dir argument must be an integer!')
+            raise ValueError('The trans_dir argument must be an integer!')
+        if trans_dir is None:
+            if start < end:
+                return [start, end, 'forward']
+            elif start > end:
+                return [end, start, 'reverse']
         if trans_dir == '+':
-          return [start, end, 'forward']
+            return [start, end, 'forward']
         elif trans_dir == '-':
-          return [start, end, 'reverse']
+            return [start, end, 'reverse']
         else:
-          if start < end:
-              return [start, end, 'forward']
-          elif start > end:
-              return [end, start, 'reverse']
-          else:
-              return [start, end, 'unknown']
+            return [start, end, 'unknown']
 
     def _set_version(self):
         """
@@ -965,9 +995,6 @@ class MetaCyc():
             except:
                 UserWarning('There is no %s!') % gb_file
 
-            # storing sequences in seqs dictionary
-            self.seqs[elem_id] = gb_record.sequence
-
             # creating chromosomes, contigs, plasmids
             name = gb_record.definition
             length = int(gb_record.size)
@@ -997,6 +1024,9 @@ class MetaCyc():
             gb = self.db_checker('GenBank')
             self.edges.append(
                 CreateEdge(refseq, gb, 'LINK'))
+
+            # storing sequences in seqs dictionary
+            self.seqs[elem_id] = (name, gb_record.sequence)
 
         # renaming Organism
         self.organism.name = gb_record.organism
@@ -1138,7 +1168,7 @@ class MetaCyc():
                     location = self._location(
                             obj.attr_check("LEFT_END_POSITION"), 
                             obj.attr_check("RIGHT_END_POSITION"),
-                            obj.attr_check("TRANSCRIPTION-DIRECTION"))
+                            obj.attr_check("TRANSCRIPTION_DIRECTION"))
                     gene = Gene(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid),
                                 start=location[0],
@@ -1153,6 +1183,9 @@ class MetaCyc():
 
                     # creating XRef and DB nodes for gene name dblinks
                     obj.links_to_db(gene, self)
+
+                    # creating edges to CCP
+                    obj.feature_ccp_location(gene, self)
 
                 print "A list with %d genes have been " \
                       "created!" % len(self.genes)

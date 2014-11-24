@@ -1447,8 +1447,9 @@ class MetaCyc():
                                site_length=obj.attr_check("SITE_LENGTH"))
                     self.BSs.append(bsite)
 
-                    # creating edges to CCP
-                    obj.feature_ccp_location(bsite, self)
+                # creating edges to CCP
+                # (BS) -[:PART_OF]-> (CCP)
+                obj.feature_ccp_location(bsite, self)
 
             print "A list with %d BSs has been created!\n" \
                   "There were %d unmapped BSs, they were " \
@@ -1480,7 +1481,14 @@ class MetaCyc():
                     notcomplete += 1
 
                 self.TUs.append(tu_obj)
+
+                # creating a Term for the RNA name
+                # (TU) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(tu_obj)
+
+                # creating an edge to the Organism node
+                # (TU) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(tu_obj, self)
 
                 # searching for genes in a TU
                 genes = [c for c in comps if isinstance(c, Gene)]
@@ -1500,8 +1508,9 @@ class MetaCyc():
                 for comp in comps:
                     if not isinstance(comp, Gene):
                         comp.strand = test.strand
-                    self.edges.append(
-                        CreateEdge(tu_obj, comp, 'CONTAINS'))
+                    self.edges.append(CreateEdge(tu_obj, comp, 'CONTAINS'))
+
+
             print "A list with %d transcription units has been created!\n" \
                   "There were %d incomplete transcription units...\n" \
                   "No information about %d transcription " \

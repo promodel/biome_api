@@ -784,6 +784,9 @@ class _DatObject():
                             CreateEdge(reactant, node, 'PARTICIPATES_IN'))
                         metacyc.edges.append(
                             CreateEdge(reactant, compartment[0], 'LOCATES_IN'))
+
+                        self.links_to_organism(reactant, metacyc)
+
             else:
                 raise TypeError("The metacyc argument must be of the MetaCyc "
                                     "class!")
@@ -1965,7 +1968,6 @@ class MetaCyc():
             # creating an edge to the Organism node
             # (Compartment) -[:PART_OF]-> (Organism)
             obj.links_to_organism(compartment, self)
-
 
     def reactions_dat(self):
         """

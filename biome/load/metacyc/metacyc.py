@@ -1859,8 +1859,10 @@ class MetaCyc():
                 # creating edge to a polypeptide or complex
                 protein = [p for p in (self.polypeptides + self.complexes)
                            if p.uid == obj.ENZYME]
+
                 if len(protein) == 0:
                     continue
+
                 self.edges.append(CreateEdge(protein[0], enzyme, 'IS_A'))
                 i += 1
             print "%d enzymes have been created!" % i
@@ -1957,7 +1959,13 @@ class MetaCyc():
                      'CCO-PERI-BAC', 'CCO-CE-BAC-POS', 'CCO-PM-BAC-POS',
                      'UNKNOWN']
         for cname, cco in zip(common_names, cco_names):
-            self.compartments.append(Compartment(name=cname, uid=cco))
+            compartment = Compartment(name=cname, uid=cco)
+            self.compartments.append(compartment)
+
+            # creating an edge to the Organism node
+            # (Compartment) -[:PART_OF]-> (Organism)
+            obj.links_to_organism(compartment, self)
+
 
     def reactions_dat(self):
         """
@@ -1982,6 +1990,7 @@ class MetaCyc():
                     obj.links_to_enzymes(reaction, self)
 
                     # creating edges to reaction name synonyms
+                    # (Reaction) -[:HAS_NAME]-> (Term)
                     obj.links_to_synonyms(reaction, self)
 
                     # searching for exact match of name/uid of objects
@@ -2021,6 +2030,9 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
+
+                # creating edges to reaction name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(pathway)                
                
                 # creating edges to reactions in the pathway

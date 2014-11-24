@@ -1,5 +1,6 @@
 from ...api import *
 from Bio import SeqIO
+from Bio import GenBank
 from tabulate import tabulate
 import networkx as nx
 
@@ -62,12 +63,12 @@ class _DatSet():
             f = file('%s%s' % (self.path, self.filename), 'r')
             data = f.readlines()
             f.close()
-            data = [line for line in data if line[0] != '#']
+            data = [line for line in data if line[0] != '#' and line[:2] != ';;' and line[:2] != '\n']
             chunks = {}
             chunk = _DatObject()
             i = 0
             for line in data:
-                if line[:9] == dict_keys:
+                if line[:len(dict_keys)] == dict_keys:
                     uid = line.replace("\n", '').split(sep)[1]
                     self.names.append(uid)
                 elif line[:2] == '//':
@@ -239,11 +240,17 @@ class _DatObject():
         self.dblink_format()
         self.location_format()
         self.mol_weight_format()
-        if self.TYPES == 'Promoters':
-            self.promoter_format()
-            self.tss_format()
-        if self.TYPES == 'DNA-Binding-Sites':
-            self.abs_center_format()
+        try:
+            if self.TYPES == 'Promoters':
+                self.promoter_format()
+                self.tss_format()
+        except:
+            pass
+        try:
+            if self.TYPES == 'DNA-Binding-Sites':
+                self.abs_center_format()
+        except:
+            pass
 
     def links_to_db(self, node, metacyc):
         """
@@ -817,14 +824,13 @@ class MetaCyc():
     """
     Class for data taken from the MetaCyc database.
     """
-    def __init__(self, path='', name='unknown', refseq='unknown'):
+    def __init__(self, path='', name='unknown'):
         if not isinstance(path, basestring):
             raise TypeError('The path argument must be a string!')
         if not os.path.isdir(path):
             raise ValueError('The path does not exist!')
         self.path = path
         self.name = name
-        self.refseq = refseq
         self.orgid = None
         self.version = None
         self.release = None
@@ -946,44 +952,45 @@ class MetaCyc():
         The method reads data in .nt-file and creates chromosomes, contigs
         or plasmids.
         """
-        input_path = self.path.replace('data', 'input')
-        org_elements = _DatSet(input_path)
+        input_path = self.path.replace('/data', '/input')
+        org_elements = _DatSet(filename='genetic-elements.dat', path=input_path)
         org_elements.readfile(sep='\t', dict_keys='ID')
 
+        for elem_id in org_elements.names:
+            elem = org_elements.data[elem_id]
+            if elem_id[:2] == 'NC':
+                refseq = elem_id
+            try:
+                gb_file = elem.ANNOT_FILE
+                parser = GenBank.RecordParser()
+                gb_record = parser.parse(open(input_path + gb_file))
+            except:
+                UserWarning('There is no %s!') % gb_file
 
+            # storing sequences
+            self.seqs[elem_id] = gb_record.sequence
 
-        # try:
-        # # reading genome sequence from .nt-file
-        #     for mcfile in os.listdir(self.path):
-        #         if mcfile.endswith(".nt"):
-        #             filename = mcfile
-        #     f = open(self.path + filename, "rU")
-        #     records = list(SeqIO.parse(f, "fasta"))
-        #     f.close()
-        # except:
-        #     raise UserWarning("There is no .nt-file!")
-        #
-        # # Creating chromosomes, contigs or plasmids
-        # for record in records:
-        #     name = record.description.split('|')[-1]
-        #     length = len(record.seq)
-        #     record_id = record.name.split('|')[-1]
-        #     #print record_id, length, name
-        #     if ('complete genome' in record.description or \
-        #                 'complete sequence' in record.description) and \
-        #                     'lasmid' not in record.description:
-        #         ccp_obj = Chromosome(name=name, length=length,
-        #                              accesion=record_id, type='unknown')
-        #     elif 'lasmid' in record.description:
-        #         ccp_obj = Plasmid(name=name, length=length,
-        #                           accesion=record_id, type='unknown')
-        #     else:
-        #         ccp_obj = Contig(name=name, length=length,
-        #                          accesion=record_id, type='unknown')
-        #
-        #     self.ccp.append(ccp_obj)
-        #     self.edges.append(
-        #         CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+            # creating chromosomes, contigs, plasmids
+            name = gb_record.definition
+            length = int(gb_record.size)
+            type = record.residue_type.split(' ')[-1] # circular/linear
+            
+            if ('complete genome' in gb_record.definition or \
+                         'complete sequence' in gb_record.definition) and \
+                             'lasmid' not in gb_record.definition:
+                 ccp_obj = Chromosome(name=name, length=length, type='unknown')
+            elif 'lasmid' in gb_record.definition:
+                 ccp_obj = Plasmid(name=name, length=length, type='unknown')
+            else:
+                 ccp_obj = Contig(name=name, length=length, type='unknown')
+
+            self.ccp.append(ccp_obj)
+            self.edges.append(
+                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+
+        # renaming Organism
+        if self.organism.name == 'unknown':
+            self.organism.name == gb_record.organism
 
     def extract_data(self):
         """

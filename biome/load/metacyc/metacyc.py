@@ -1005,14 +1005,15 @@ class MetaCyc():
         """
         Tne method uses a number of methods for data extraction.
         """
-        # Setting MetaCyc DB version information.
+        # Setting MetaCyc DB version information and creating an Organism node.
         self._set_version()
 
-        # Creating Chromosomes, Contigs and Plasmids
+        # Creating nodes for Chromosomes, Contigsm, Plasmids, XRefs, DB(GenBank)
+        # and edges between them
         self.create_ccp()
 
-        # Everything about genes; methods create nodes for genes, terms, xrefs,
-        # dbs and edges between them
+        # Everything about genes; methods create nodes for Genes, Terms, XRefs,
+        # DBs and edges between them
         self.genes_col()
         self.genes_dat()
         self.gene_links()

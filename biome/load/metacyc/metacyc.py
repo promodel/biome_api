@@ -2031,7 +2031,7 @@ class MetaCyc():
     def make_graph(self, filename = 'metacyc'):
         """
         The method constructs a networkX graph structure from a MetaCyc object.
-        All duplicates are deleting during graph constructuin.
+        All duplicates are deleting during graph construction.
         It might be very slow for objects with a great number of edges.
         SHOULD BE REWRITTEN!
         """
@@ -2047,14 +2047,15 @@ class MetaCyc():
 
         graph = nx.DiGraph()
 
+        d = 0
         # creating nodes
         nodes_dict = {}
         for node in allnodes:
-            mydict = node.__dict__
+            mydict = node.__dict__.copy()
 
             # checking that the node is not in the
             # nodes_dict
-            node_tuple = tuple(mydict.values())
+            node_tuple = tuple(sorted(mydict.values()))
             if node_tuple not in nodes_dict.keys():
 
                 # deleting empty properties
@@ -2065,25 +2066,32 @@ class MetaCyc():
                 graph.add_node(j, mydict)
                 nodes_dict[node_tuple] = j
                 j += 1
+            else:
+                d += 1
         print "Nodes done!"
 
         # creating edges
         i = 0
+        problem = 0
+        noproblem = 0
         edges = list(set(self.edges))
         for edge in edges:
             i += 1
             if i % 10000 == 0:
                 print i
             try:
-                i_source = nodes_dict[tuple(edge.source.__dict__.values())]
-                i_target = nodes_dict[tuple(edge.target.__dict__.values())]
+                i_source = nodes_dict[tuple(sorted(edge.source.__dict__.values()))]
+                i_target = nodes_dict[tuple(sorted(edge.target.__dict__.values()))]
                 graph.add_edge(i_source, i_target, label=edge.label)
+                noproblem += 1
             except:
-                warnings.warn("Can't find nodes for an edge! Let's skip it!")
+                #warnings.warn("Can't find nodes for an edge! Let's skip it!")
+                problem += 1
                 continue
 
+        print problem, noproblem, d
         nx.write_graphml(graph, filename + '.graphml')
-        return graph
+        return nodes_dict
 
 ###############################################################################
 

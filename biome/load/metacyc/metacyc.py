@@ -1268,11 +1268,13 @@ class MetaCyc():
                     if len(gene) == 0:
                         continue
 
+                    # creating links to Uniprot
+                    # (Gene) -[:EVIDENCE]-> (Xref) -[:LINK]-> (DB:Uniprot)
                     xref = XRef(chunks[1])
                     self.xrefs.append(xref)
                     self.edges.append(CreateEdge(gene[0], xref, 'EVIDENCE'))
                     db_obj = self.db_checker("UniProt")
-                    self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
+                    self.edges.append(CreateEdge(xref, db_obj, 'LINK'))
             except:
                 print "There is no gene-links.dat file in the database or " \
                       "it has wrong format! Let's skip it..."

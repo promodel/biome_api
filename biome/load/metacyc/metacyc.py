@@ -817,9 +817,9 @@ class _DatObject():
             raise TypeError("The metacyc argument must be of the MetaCyc "
                             "class!")
 
-    def feature_ccp_location(self, node, metacyc, return_seq=False):
+    def feature_ccp_location(self, node, metacyc):
         """
-        The method make edges between a Feature and a CCP it locates on.
+        The method makes edges between a Feature and a CCP it locates on.
         """
         if isinstance(node, Feature):
             if isinstance(metacyc, MetaCyc):
@@ -831,21 +831,32 @@ class _DatObject():
                                if obj.name == metacyc.seqs[key][0]][0]
                         metacyc.edges.append(
                             CreateEdge(node, ccp, 'PART_OF'))
-                        flagg = 1
+                        flag = 1
                         break
                 if flag == 0:
                     UserWarning('Unmapped component!')
-                if return_seq == True:
-                    subseq = metacyc.seqs[key][node.start, node.end]
-                    if node.strand == 'reverse':
-                        seq = str(Seq(subseq).reverse_complement())
-                    return seq
             else:
                 raise TypeError("The metacyc argument must be of the MetaCyc "
                                     "class!")
         else:
             raise TypeError("The node argument must be of the Feature class or "
                             "derived classes!")
+
+    def link_to_organism(self, node, metacyc):
+        """
+        The method makes edges between a BioEntity (and a few other node
+        classes) and an Organism node.
+        """
+        if isinstance(node, BioEntity):
+            if isinstance(metacyc, MetaCyc):
+                metacyc.edges.append(
+                            CreateEdge(node, metacyc.organism, 'PART_OF'))
+            else:
+                raise TypeError("The metacyc argument must be of the MetaCyc "
+                                    "class!")
+        else:
+            raise TypeError("The node argument must be of the Feature class"
+                            " or derived classes!")
 
 ###############################################################################
 
@@ -1062,6 +1073,7 @@ class MetaCyc():
 
         # Transcription units
         self.transunits_dat()
+        self.add_sequences()
 
         # Compounds
         self.compounds_dat()
@@ -1210,6 +1222,10 @@ class MetaCyc():
 
                         # creating XRef and DB nodes for gene name dblinks
                         obj.links_to_db(gene, self)
+
+                        # creating edges to CCP
+                        obj.feature_ccp_location(gene, self)
+
                     except:
                         pass
             else:
@@ -1325,6 +1341,10 @@ class MetaCyc():
                 ter = Terminator(uid=uid, start=obj.LEFT_END_POSITION,
                                  end=obj.RIGHT_END_POSITION)
                 self.terminators.append(ter)
+
+                # creating edges to CCP
+                obj.feature_ccp_location(ter, self)
+
             print "A list with %d terminators has been created!\n" \
                   "There were %d unmapped elements, they were " \
                   "skipped..." % (len(self.terminators), unmapped)
@@ -1349,6 +1369,9 @@ class MetaCyc():
                                strand="unknown", seq=None)
                 self.promoters.append(pro)
                 self.name_to_terms(pro)
+
+                # creating edges to CCP
+                obj.feature_ccp_location(pro, self)
 
             print "A list with %d promoters has been created!\n" \
                   "There were %d unmapped elements, they were " \
@@ -1380,6 +1403,10 @@ class MetaCyc():
                                end=obj.ABS_CENTER_POS,
                                site_length=obj.attr_check("SITE_LENGTH"))
                     self.BSs.append(bsite)
+
+                    # creating edges to CCP
+                    obj.feature_ccp_location(bsite, self)
+
             print "A list with %d BSs has been created!\n" \
                   "There were %d unmapped BSs, they were " \
                   "skipped..." % (len(self.BSs), unmapped)
@@ -1412,7 +1439,8 @@ class MetaCyc():
                 self.TUs.append(tu_obj)
                 self.name_to_terms(tu_obj)
 
-                genes = [c for c in comps if c.__class__.__name__ == "Gene"]
+                # searching for genes in a TU
+                genes = [c for c in comps if isinstance(c, Gene)]
 
                 # if there are no genes
                 if len(genes) == 0:
@@ -1427,37 +1455,51 @@ class MetaCyc():
                 # creating edges and rewriting strand values to promoters,
                 # terminators and BSs
                 for comp in comps:
-                    comp_class = comp.__class__.__name__
-                    if comp_class == "Gene":
-                        self.edges.append(
-                            CreateEdge(tu_obj, comp, 'CONTAINS'))
-                    else:
+                    if not isinstance(comp, Gene):
                         comp.strand = test.strand
-                        # rewriting coordinates and sequences for promoters
-                        if comp_class == "Promoter":
-                            if comp.strand == 'forward':
-                                comp.start = comp.start - 60
-                                comp.end = comp.end + 15
-                            elif comp.strand == 'reverse':
-                                comp.start = comp.start - 15
-                                comp.end = comp.end + 60
-                            if "genome" in locals():
-                                if comp.start < 0:
-                                    comp.start = 0
-                                elif comp.start > len(genome):
-                                    comp.start = len(genome)
-                                if comp.end < 0:
-                                    comp.end = 0
-                                elif comp.end > len(genome):
-                                    comp.end = len(genome)
-                                seq = genome[comp.start + 1 : comp.end + 1]
-                                comp.seq = seq
-                        self.edges.append(
-                            CreateEdge(tu_obj, comp, 'CONTAINS'))
+                    self.edges.append(
+                        CreateEdge(tu_obj, comp, 'CONTAINS'))
             print "A list with %d transcription units has been created!\n" \
                   "There were %d incomplete transcription units...\n" \
                   "No information about %d transcription " \
                   "units." % (len(self.TUs), notcomplete, nocomps)
+
+    def add_sequences(self):
+        """
+        The method rewrites coordinates value and adds sequences to
+        objects (promoters).
+        """
+        sources = [edge.source for edge in self.edges
+                 if edge.label == 'PART_OF' and
+                    isinstance(edge.source, Promoter) and
+                    (isinstance(edge.target, Chromosome) or
+                     isinstance(edge.target, Contig) or
+                     isinstance(edge.target, Plasmid))]
+        targets = [edge.target for edge in self.edges
+                 if edge.label == 'PART_OF' and
+                    isinstance(edge.source, Promoter) and
+                    (isinstance(edge.target, Chromosome) or
+                     isinstance(edge.target, Contig) or
+                     isinstance(edge.target, Plasmid))]
+        for promoter in self.promoters:
+            if promoter.strand in ('unknown', 'both'):
+                continue
+            if promoter.strand == 'reverse':
+                promoter.start = promoter.start - 15
+                promoter.end = promoter.end + 60
+            else:
+                promoter.start = promoter.start - 60
+                promoter.end = promoter.end + 15
+            i = sources.index(promoter)
+            ccp_name = targets[i].name
+            ccp_seq = [self.seqs[key][1] for key in self.seqs.keys()
+                       if self.seqs[key][0] == ccp_name][0]
+            if promoter.start < 0:
+                promoter.start = 1
+            if promoter.end > len(ccp_seq):
+                promoter.end = len(ccp_seq)
+
+            promoter.seq = ccp_seq[promoter.start - 1 : promoter.end - 1]
 
     def compounds_dat(self):
         """

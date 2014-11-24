@@ -2050,14 +2050,14 @@ class MetaCyc():
         # creating nodes
         nodes_dict = {}
         for node in allnodes:
+            mydict = node.__dict__
 
             # checking that the node is not in the
             # nodes_dict
             node_tuple = tuple(mydict.values())
             if node_tuple not in nodes_dict.keys():
 
-                # deleting empty properties 
-                mydict = node.__dict__
+                # deleting empty properties
                 for key in mydict.keys():
                     if mydict[key] is None:
                         del mydict[key]
@@ -2075,8 +2075,8 @@ class MetaCyc():
             if i % 10000 == 0:
                 print i
             try:
-                i_source = nodes_dict[tuple(edge.source.values())]
-                i_target = nodes_dict[tuple(edge.target.values())]
+                i_source = nodes_dict[tuple(edge.source.__dict__.values())]
+                i_target = nodes_dict[tuple(edge.target.__dict__.values())]
                 graph.add_edge(i_source, i_target, label=edge.label)
             except:
                 warnings.warn("Can't find nodes for an edge! Let's skip it!")

@@ -256,7 +256,7 @@ class _DatObject():
         """
         The method takes as an input a Node subclass object and
         a MetaCyc database object and creates links to external databases
-        for node. It forms (node)-[:EVIDENCE]->(xref)-[:LINK_TO]->(db)
+        for node. It forms (Node)-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB)
         path and stores nodes and edges into the MetaCyc object.
         """
         if isinstance(node, Node):
@@ -276,8 +276,8 @@ class _DatObject():
                         #checking if the database is already in self.dbs
                         db_obj = metacyc.db_checker(dblink["DB"])
 
-                        # creating node -[EVIDENCE]-> xref -[LINK_TO]-> db_obj
-                        # path
+                        # creating path
+                        # (Node) -[EVIDENCE]-> (XRef) -[LINK_TO]-> (DB)
                         metacyc.edges.append(
                             CreateEdge(node, xref, 'EVIDENCE'))
                         metacyc.edges.append(
@@ -1027,14 +1027,14 @@ class MetaCyc():
             self.edges.append(
                 CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
-            # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK]->(DB=GenBank)
+            # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
             refseq = XRef(id=gb_record.locus)
             self.xrefs.append(refseq)
             self.edges.append(
                 CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
             gb = self.db_checker('GenBank')
             self.edges.append(
-                CreateEdge(refseq, gb, 'LINK'))
+                CreateEdge(refseq, gb, 'LINK_TO'))
 
             # storing sequences in seqs dictionary
             self.seqs[elem_id] = (name, gb_record.sequence)
@@ -1198,7 +1198,7 @@ class MetaCyc():
                     obj.links_to_synonyms(gene, self)
 
                     # creating XRef and DB nodes for gene name dblinks
-                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB)
+                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                     obj.links_to_db(gene, self)
 
                     # creating edges to CCP
@@ -1232,7 +1232,7 @@ class MetaCyc():
                         obj.links_to_synonyms(gene, self)
 
                         # creating XRef and DB nodes for gene name dblinks
-                        # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB)
+                        # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                         obj.links_to_db(gene, self)
 
                         # creating edges to CCP
@@ -1251,7 +1251,7 @@ class MetaCyc():
     def gene_links(self):
         """
         The method creates links from genes to Uniprot entries,
-        It forms (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB:Uniprot) path.
+        It forms (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB:Uniprot) path.
         """
         if len(self.genes) != 0:
             try:
@@ -1269,12 +1269,12 @@ class MetaCyc():
                         continue
 
                     # creating links to Uniprot
-                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB:Uniprot)
+                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB:Uniprot)
                     xref = XRef(chunks[1])
                     self.xrefs.append(xref)
                     self.edges.append(CreateEdge(gene[0], xref, 'EVIDENCE'))
                     db_obj = self.db_checker("UniProt")
-                    self.edges.append(CreateEdge(xref, db_obj, 'LINK'))
+                    self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
             except:
                 print "There is no gene-links.dat file in the database or " \
                       "it has wrong format! Let's skip it..."
@@ -1569,12 +1569,17 @@ class MetaCyc():
                                     smiles=obj.attr_check("SMILES"),
                                     type=obj.attr_check("TYPES"))
                 self.compounds.append(compound)
+
+                # creating a Term for the Compound name
+                # (Compound) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(compound)
 
                 # creating Terms for compounds name synonyms
+                # (Compound) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(compound, self)
 
                 # creating XRef and DB nodes for compounds dblinks
+                # (Compound) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                 obj.links_to_db(compound, self)
 
             print "A list with %d compounds has been " \
@@ -1628,13 +1633,22 @@ class MetaCyc():
                     warnings.warn("Unexpected peptide types! "
                                   "Let's skip it... \nThe object uid %s" % uid)
                     continue
+
+                #  creating a Term for the Compound name
+                # (Peptide) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(peptide)
                 
                 # creating Terms for peptide name synonyms
+                # (Peptide) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(peptide, self)
 
                 # creating XRef and DB nodes for peptide dblinks
+                # (Peptide) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                 obj.links_to_db(peptide, self)
+
+                # creating an edge to the Organism node
+                # (Peptide) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(peptide, self)
 
                 # creating XRef and DB node for GO-terms
                 if hasattr(obj, 'GO_TERMS'):
@@ -1657,9 +1671,13 @@ class MetaCyc():
                     self.other_nodes.append(modification)
                     self.name_to_terms(modification)
 
-                    # creating edges peptide -[FORMS]-> modification
+                    # creating edges (Peptide) -[:FORMS]-> (Unspecified)
                     self.edges.append(
                         CreateEdge(peptide, modification, 'FORMS'))
+
+                    # creating an edge to the Organism node
+                    # (Unspecified) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(modification, self)
 
             for uid in complexes:
                 obj = datfile.data[uid]
@@ -1667,16 +1685,26 @@ class MetaCyc():
                 # checking if a complex already in self.complexes
                 complex_check = [i for i in self.complexes if i.uid == uid]
                 if len(complex_check) == 0:
+                    mol_weight = obj.attr_check("MOLECULAR_WEIGHT_KD")
                     complex_obj = Complex(uid=uid,
                                           name=obj.attr_check("COMMON_NAME", uid),
-                                          molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                                          molecular_weight_kd=mol_weight)
                     self.complexes.append(complex_obj)
+
+                    #  creating a Term for the Compound name
+                    # (Complex) -[:HAS_NAME]-> (Term)
                     self.name_to_terms(complex_obj)
+
                 else:
                     complex_obj = complex_check[0]
 
                 # creating Terms for complex name synonyms
+                # (Complex) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(complex_obj, self)
+
+                # creating an edge to the Organism node
+                # (Complex) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(complex_obj, self)
 
                 # creating XRef and DB node for GO-terms
                 if hasattr(obj, 'GO_TERMS'):
@@ -1684,8 +1712,9 @@ class MetaCyc():
                         goterm = goterm.replace('|', '')
                         xref = XRef(goterm)
                         self.xrefs.append(xref)
-                        self.edges.append(CreateEdge(complex_obj, xref, 'EVIDENCE'))
-                        db_obj = self.db_checker("GO")
+                        self.edges.append(
+                            CreateEdge(complex_obj, xref, 'EVIDENCE'))
+                        db_obj = self.db_checker("GeneOntology")
                         self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
 
                 if hasattr(obj, "COMPONENTS"):
@@ -1701,18 +1730,28 @@ class MetaCyc():
                         if len(components) == 1:
                             component = components[0]
 
-                        # if a component is a complex, that hasn't been created yet...
+                        # if a component is a complex, that hasn't
+                        # been created yet...
                         elif len(components) == 0 and comp[:4] == 'CPLX':
+                            mol_weight = obj.attr_check("MOLECULAR_WEIGHT_KD")
                             component = Complex(uid=comp,
                                                 name=obj.attr_check("COMMON_NAME", comp),
-                                                molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                                                molecular_weight_kd=mol_weight)
                             self.complexes.append(component)
+
+                            # creating Terms for complex name synonyms
+                            # (Complex) -[:HAS_NAME]-> (Term)
                             self.name_to_terms(component)
+
+                            # creating an edge to the Organism node
+                            # (Complex) -[:PART_OF]-> (Organism)
+                            obj.links_to_organism(component, self)
 
                         # if a component is something else
                         else:
-                            print "The complex with %s is assigned before " \
-                                  "its components (%s)!" % (complex_obj.uid, comp)
+                            print "The complex with %s is assigned " \
+                                  "before its components " \
+                                  "(%s)!" % (complex_obj.uid, comp)
                             continue
                         self.edges.append(
                             CreateEdge(component, complex_obj, 'PART_OF'))
@@ -1743,6 +1782,7 @@ class MetaCyc():
                 # creating an edge to the protein
                 # Protein -[:HAS_FEATURE]-> ProtFeature
                 obj.links_to_protein(protfeature, self)
+
             print "A list with %d protein features has been " \
                   "created!" % len(self.protfeatures)
 
@@ -1767,7 +1807,14 @@ class MetaCyc():
                         name = obj.COMMON_NAME
                     sigma = SigmaFactor(name=name)
                     self.proteins.append(sigma)
+
+                    # creating Terms for complex name synonyms
+                    # (Sigma_Factor) -[:HAS_NAME]-> (Term)
                     self.name_to_terms(sigma)
+
+                    # creating an edge to the Organism node
+                    # (Sigma_Factor) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(sigma, self)
 
                     # creating an edge to a poplypetide/complex
                     protein = [p for p in (self.polypeptides + self.complexes)
@@ -1800,7 +1847,14 @@ class MetaCyc():
                 enzyme = Enzyme(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid))
                 self.proteins.append(enzyme)
+
+                # creating Terms for complex name synonyms
+                # (Enzyme) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(enzyme)
+
+                # creating an edge to the Organism node
+                # (Enzyme) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(enzyme, self)
 
                 # creating edge to a polypeptide or complex
                 protein = [p for p in (self.polypeptides + self.complexes)

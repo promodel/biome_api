@@ -1251,7 +1251,7 @@ class MetaCyc():
     def gene_links(self):
         """
         The method creates links from genes to Uniprot entries,
-        It forms (gene) -[:EVIDENCE]-> (xref) -[:LINK_TO]-> (DB:Uniprot) path.
+        It forms (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB:Uniprot) path.
         """
         if len(self.genes) != 0:
             try:
@@ -1269,7 +1269,7 @@ class MetaCyc():
                         continue
 
                     # creating links to Uniprot
-                    # (Gene) -[:EVIDENCE]-> (Xref) -[:LINK]-> (DB:Uniprot)
+                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK]-> (DB:Uniprot)
                     xref = XRef(chunks[1])
                     self.xrefs.append(xref)
                     self.edges.append(CreateEdge(gene[0], xref, 'EVIDENCE'))

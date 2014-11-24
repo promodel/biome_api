@@ -2044,6 +2044,7 @@ class MetaCyc():
                 obj.reactions_order(self)
 
                 # creating Terms for pathway name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(pathway, self)
 
             for uid in superpath:
@@ -2053,6 +2054,9 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
+
+                # creating edges to reaction name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(pathway) 
 
                 # creating edges to reactions in the pathway
@@ -2061,6 +2065,7 @@ class MetaCyc():
                 obj.links_to_reactions(pathway, self)
 
                 # creating Terms for pathway name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(pathway, self)
                 
             print "A list with %d pathways has been " \
@@ -2085,6 +2090,7 @@ class MetaCyc():
                     for line in data:
                         if line[0] == '#' or line[:3] == "UNI":
                             continue
+
                         chunks = line.replace('\n', '').split('\t')
                         genes_uids = [chunk for chunk in chunks[2:]
                                       if chunk != '']
@@ -2129,7 +2135,11 @@ class MetaCyc():
                 chunks = line.replace('\n', '').split('\t')
                 transporter = Transporter(name=chunks[1], reaction=chunks[2])
                 self.proteins.append(transporter)
+
+                # creating edges to reaction name synonyms
+                # (Transporter) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(transporter)
+
                 protein = [p for p in (self.oligopeptides + self.polypeptides +
                                        self.complexes) if p.uid == chunks[0]]
                 if len(protein) == 0:
@@ -2138,8 +2148,13 @@ class MetaCyc():
                 # creating edges (Peptide) -[:IS_A]-> (Transporter)
                 # creating edges (Complex) -[:IS_A]-> (Transporter)
                 self.edges.append(CreateEdge(protein[0], transporter, 'IS_A'))
+
+                # creating an edge to the Organism node
+                # (Compartment) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(transporter, self)
+
             transnum = len([p for p in self.proteins
-                            if p.__class__.__name__ == "Transporter"])
+                            if isinstance(p, Transporter)])
             print "%d protein-transporters have been created!" % transnum
         except:
             print "There is no pathways.col file! Let's skip it..."

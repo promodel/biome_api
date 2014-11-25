@@ -955,6 +955,7 @@ class MetaCyc():
             raise TypeError('The end argument must be an integer!')
         if trans_dir not in ['+', '-', None]:
             raise ValueError('The trans_dir argument must be an integer!')
+
         if trans_dir is None:
             if start < end:
                 return [start, end, 'forward']
@@ -2254,7 +2255,7 @@ class MetaCyc():
     def make_graph(self, filename = 'metacyc'):
         """
         The method constructs a networkX graph structure from a MetaCyc object.
-        All duplicates are deleting during graph constructuin.
+        All duplicates are deleting during graph construction.
         It might be very slow for objects with a great number of edges.
         SHOULD BE REWRITTEN!
         """
@@ -2270,40 +2271,53 @@ class MetaCyc():
 
         graph = nx.DiGraph()
 
+        d = 0
         # creating nodes
         nodes_dict = {}
-        for node, i in enumerate(allnodes, xrange(0, len(allnodes))):
-            mydict = node.__dict__
-            for key in mydict.keys():
-                if mydict[key] is None:
-                    del mydict[key]
-            graph_nodes = [g[1] for g in graph.nodes(data=True)]
-            if mydict in graph_nodes:
-                nodes_dict[str(i)] = graph_nodes.index(mydict)
-            else:
+
+        for node in allnodes:
+            mydict = node.__dict__.copy()
+
+            # checking that the node is not in the
+            # nodes_dict
+            node_tuple = tuple(sorted(mydict.values()))
+            if node_tuple not in nodes_dict.keys():
+
+                # deleting empty properties
+                for key in mydict.keys():
+                    if mydict[key] is None:
+                        del mydict[key]
+
                 graph.add_node(j, mydict)
-                nodes_dict[str(i)] = j
+                nodes_dict[node_tuple] = j
                 j += 1
+            else:
+                d += 1
         print "Nodes done!"
 
         # creating edges
         i = 0
+        problem = 0
+        noproblem = 0
         edges = list(set(self.edges))
         for edge in edges:
             i += 1
             if i % 10000 == 0:
                 print i
             try:
-                i_source = allnodes.index(edge.source)
-                i_target = allnodes.index(edge.target)
-                graph.add_edge(nodes_dict[str(i_source)], nodes_dict[str(i_target)], label=edge.label)
+                i_source = nodes_dict[tuple(sorted(edge.source.__dict__.values()))]
+                i_target = nodes_dict[tuple(sorted(edge.target.__dict__.values()))]
+                graph.add_edge(i_source, i_target, label=edge.label)
+                noproblem += 1
             except:
-                warnings.warn("Can't find nodes for an edge! Let's skip it!")
+                #warnings.warn("Can't find nodes for an edge! Let's skip it!")
+                problem += 1
                 continue
 
+        print problem, noproblem, d
         nx.write_graphml(graph, filename + '.graphml')
-        nx.write_gml(graph, filename + '.gml')
-        return graph
+        return nodes_dict
+
 
 ###############################################################################
 

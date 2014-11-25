@@ -2271,7 +2271,6 @@ class MetaCyc():
 
         graph = nx.DiGraph()
 
-        d = 0
         # creating nodes
         nodes_dict = {}
 
@@ -2291,8 +2290,6 @@ class MetaCyc():
                 graph.add_node(j, mydict)
                 nodes_dict[node_tuple] = j
                 j += 1
-            else:
-                d += 1
         print "Nodes done!"
 
         # creating edges
@@ -2314,9 +2311,9 @@ class MetaCyc():
                 problem += 1
                 continue
 
-        print problem, noproblem, d
+        print problem, noproblem
         nx.write_graphml(graph, filename + '.graphml')
-        return nodes_dict
+        return graph
 
 
 ###############################################################################

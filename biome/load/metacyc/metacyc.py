@@ -1006,7 +1006,7 @@ class MetaCyc():
                 parser = GenBank.RecordParser()
                 gb_record = parser.parse(open(input_path + gb_file))
             except:
-                UserWarning('There is no %s!') % gb_file
+                UserWarning('There is no %s!' % gb_file)
 
             # creating chromosomes, contigs, plasmids
             name = gb_record.definition

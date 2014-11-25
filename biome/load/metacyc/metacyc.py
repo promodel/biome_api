@@ -982,8 +982,6 @@ class MetaCyc():
                     chunks = line.replace('\n', '').split('\t')
                     if chunks[0] == 'ORGID':
                         self.orgid = chunks[1]
-                    elif chunks[0] == 'ORGANISM':
-                        self.organism_name = chunks[1]
                     elif chunks[0] == 'VERSION':
                         self.version = chunks[1]
                     elif chunks[0] == 'RELEASE-DATE':

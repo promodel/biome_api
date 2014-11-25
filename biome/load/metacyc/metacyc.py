@@ -2313,7 +2313,6 @@ class MetaCyc():
         nx.write_graphml(graph, filename + '.graphml')
         return graph
 
-
 ###############################################################################
 
 

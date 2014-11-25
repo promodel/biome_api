@@ -1,5 +1,6 @@
 from ...api import *
-from Bio import SeqIO
+from Bio import SeqIO, GenBank
+from Bio.Seq import Seq
 from tabulate import tabulate
 import networkx as nx
 
@@ -54,7 +55,7 @@ class _DatSet():
     def __str__(self):
         return "_DatSet constructed for %s file" % self.filename
 
-    def readfile(self):
+    def readfile(self, sep=" - ", dict_keys='UNIQUE-ID'):
         """
         The methods works with dat-files format.
         """
@@ -62,13 +63,13 @@ class _DatSet():
             f = file('%s%s' % (self.path, self.filename), 'r')
             data = f.readlines()
             f.close()
-            data = [line for line in data if line[0] != '#']
+            data = [line for line in data if line[0] != '#' and line[:2] != ';;' and line[:2] != '\n']
             chunks = {}
             chunk = _DatObject()
             i = 0
             for line in data:
-                if line[:9] == 'UNIQUE-ID':
-                    uid = line.replace("\n", '').split(" - ")[1]
+                if line[:len(dict_keys)] == dict_keys:
+                    uid = line.replace("\n", '').split(sep)[1]
                     self.names.append(uid)
                 elif line[:2] == '//':
                     chunk.formatting()
@@ -77,14 +78,14 @@ class _DatSet():
                 elif line[:1] == '/':
                     pass
                 else:
-                    sp_line = line.replace('\n', '').split(" - ")
+                    sp_line = line.replace('\n', '').split(sep)
                     attr = make_name(sp_line[0])
                     if attr == "RIGHT" or attr == "LEFT":
-                        sp_nextline = data[i+1].replace('\n', '').split(" - ")
+                        sp_nextline = data[i+1].replace('\n', '').split(sep)
 
                         # if it is the end of file
                         if len(data) != i + 2:
-                            sp_nextnextline = data[i+2].replace('\n', '').split(" - ")
+                            sp_nextnextline = data[i+2].replace('\n', '').split(sep)
                         else:
                             sp_nextnextline = [None]
 
@@ -239,17 +240,23 @@ class _DatObject():
         self.dblink_format()
         self.location_format()
         self.mol_weight_format()
-        if self.TYPES == 'Promoters':
-            self.promoter_format()
-            self.tss_format()
-        if self.TYPES == 'DNA-Binding-Sites':
-            self.abs_center_format()
+        try:
+            if self.TYPES == 'Promoters':
+                self.promoter_format()
+                self.tss_format()
+        except:
+            pass
+        try:
+            if self.TYPES == 'DNA-Binding-Sites':
+                self.abs_center_format()
+        except:
+            pass
 
     def links_to_db(self, node, metacyc):
         """
         The method takes as an input a Node subclass object and
         a MetaCyc database object and creates links to external databases
-        for node. It forms (node)-[:EVIDENCE]->(xref)-[:LINK_TO]->(db)
+        for node. It forms (Node)-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB)
         path and stores nodes and edges into the MetaCyc object.
         """
         if isinstance(node, Node):
@@ -269,8 +276,8 @@ class _DatObject():
                         #checking if the database is already in self.dbs
                         db_obj = metacyc.db_checker(dblink["DB"])
 
-                        # creating node -[EVIDENCE]-> xref -[LINK_TO]-> db_obj
-                        # path
+                        # creating path
+                        # (Node) -[EVIDENCE]-> (XRef) -[LINK_TO]-> (DB)
                         metacyc.edges.append(
                             CreateEdge(node, xref, 'EVIDENCE'))
                         metacyc.edges.append(
@@ -777,6 +784,9 @@ class _DatObject():
                             CreateEdge(reactant, node, 'PARTICIPATES_IN'))
                         metacyc.edges.append(
                             CreateEdge(reactant, compartment[0], 'LOCATES_IN'))
+
+                        self.links_to_organism(reactant, metacyc)
+
             else:
                 raise TypeError("The metacyc argument must be of the MetaCyc "
                                     "class!")
@@ -810,6 +820,47 @@ class _DatObject():
             raise TypeError("The metacyc argument must be of the MetaCyc "
                             "class!")
 
+    def feature_ccp_location(self, node, metacyc):
+        """
+        The method makes edges between a Feature and a CCP it locates on.
+        """
+        if isinstance(node, Feature):
+            if isinstance(metacyc, MetaCyc):
+                flag = 0
+                component_of = self.COMPONENT_OF
+                for key in metacyc.seqs.keys():
+                    if key in component_of:
+                        ccp = [obj for obj in metacyc.ccp
+                               if obj.name == metacyc.seqs[key][0]][0]
+                        metacyc.edges.append(
+                            CreateEdge(node, ccp, 'PART_OF'))
+                        flag = 1
+                        break
+                if flag == 0:
+                    UserWarning('Unmapped component!')
+            else:
+                raise TypeError("The metacyc argument must be of the MetaCyc "
+                                    "class!")
+        else:
+            raise TypeError("The node argument must be of the Feature class or "
+                            "derived classes!")
+
+    def links_to_organism(self, node, metacyc):
+        """
+        The method makes edges between a BioEntity (and a few other node
+        classes) and an Organism node.
+        """
+        if isinstance(node, Node):
+            if isinstance(metacyc, MetaCyc):
+                metacyc.edges.append(
+                            CreateEdge(node, metacyc.organism, 'PART_OF'))
+            else:
+                raise TypeError("The metacyc argument must be of the MetaCyc "
+                                    "class!")
+        else:
+            raise TypeError("The node argument must be of the Node class"
+                            " or derived classes!")
+
 ###############################################################################
 
 
@@ -817,17 +868,17 @@ class MetaCyc():
     """
     Class for data taken from the MetaCyc database.
     """
-    def __init__(self, path=''):
+    def __init__(self, path='', name='unknown'):
         if not isinstance(path, basestring):
             raise TypeError('The path argument must be a string!')
         if not os.path.isdir(path):
             raise ValueError('The path does not exist!')
         self.path = path
-        self.organism_name = None
+        self.name = name
         self.orgid = None
         self.version = None
         self.release = None
-        self.organism = []
+        self.organism = Organism(name = self.name)
         self.ccp = []
         self.genes = []
         self.edges = []
@@ -851,7 +902,7 @@ class MetaCyc():
         self.compartments = []
         self.pathways = []
         self.other_nodes = []
-        self.seqs = []
+        self.seqs = {}
 
     def __repr__(self):
         if self.organism != None and self.version != None\
@@ -902,20 +953,19 @@ class MetaCyc():
             raise TypeError('The start argument must be an integer!')
         if not isinstance(end, int):
             raise TypeError('The end argument must be an integer!')
-	if trans_dir not in ['+', '-', None]:
+        if trans_dir not in ['+', '-', None]:
             raise ValueError('The trans_dir argument must be an integer!')
-	if trans_dir == '+':
-	  return [start, end, 'forward']
-	elif trans_dir == '-':
-	  return [start, end, 'reverse']
-	else:
-	  if start < end:
-	      return [start, end, 'forward']
-	  elif start > end:
-	      return [end, start, 'reverse']
-	  else:
-	      return [start, end, 'unknown']
-	
+        if trans_dir is None:
+            if start < end:
+                return [start, end, 'forward']
+            elif start > end:
+                return [end, start, 'reverse']
+        if trans_dir == '+':
+            return [start, end, 'forward']
+        elif trans_dir == '-':
+            return [start, end, 'reverse']
+        else:
+            return [start, end, 'unknown']
 
     def _set_version(self):
         """
@@ -938,20 +988,76 @@ class MetaCyc():
                     elif chunks[0] == 'RELEASE-DATE':
                         self.release = chunks[1]
             print "Information about version and release has been set!"
-            return 'OK'
         except:
             print 'There is no information about the database version!'
-            return 'FAIL'
+
+    def create_ccp(self):
+        """
+        The method reads data in .nt-file and creates chromosomes, contigs
+        or plasmids.
+        """
+        input_path = self.path.replace('/data', '/input')
+        org_elements = _DatSet(filename='genetic-elements.dat', path=input_path)
+        org_elements.readfile(sep='\t', dict_keys='ID')
+
+        for elem_id in org_elements.names:
+            elem = org_elements.data[elem_id]
+            try:
+                gb_file = elem.ANNOT_FILE
+                parser = GenBank.RecordParser()
+                gb_record = parser.parse(open(input_path + gb_file))
+            except:
+                UserWarning('There is no %s!') % gb_file
+
+            # creating chromosomes, contigs, plasmids
+            name = gb_record.definition
+            length = int(gb_record.size)
+            type = gb_record.residue_type.split(' ')[-1] # circular/linear
+
+            # guessing what type of CCP the record is by its definition
+            if ('complete genome' in gb_record.definition or \
+                         'complete sequence' in gb_record.definition) and \
+                             'lasmid' not in gb_record.definition:
+                 ccp_obj = Chromosome(name=name, length=length, type=type)
+            elif 'lasmid' in gb_record.definition:
+                 ccp_obj = Plasmid(name=name, length=length, type=type)
+            else:
+                 ccp_obj = Contig(name=name, length=length, type=type)
+
+            self.ccp.append(ccp_obj)
+
+            # creating edges [CCP]-[:PART_OF]->(Organism)
+            self.edges.append(
+                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+
+            # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
+            refseq = XRef(id=gb_record.locus)
+            self.xrefs.append(refseq)
+            self.edges.append(
+                CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
+            gb = self.db_checker('GenBank')
+            self.edges.append(
+                CreateEdge(refseq, gb, 'LINK_TO'))
+
+            # storing sequences in seqs dictionary
+            self.seqs[elem_id] = (name, gb_record.sequence)
+
+        # renaming Organism
+        self.organism.name = gb_record.organism
 
     def extract_data(self):
         """
         Tne method uses a number of methods for data extraction.
         """
-        # Setting MetaCyc DB version information and creating the Organism node
-        self.create_organism()
+        # Setting MetaCyc DB version information and creating an Organism node.
+        self._set_version()
 
-        # Everything about genes; methods create nodes for genes, terms, xrefs,
-        # dbs and edges between them
+        # Creating nodes for Chromosomes, Contigsm, Plasmids, XRefs, DB(GenBank)
+        # and edges between them
+        self.create_ccp()
+
+        # Everything about genes; methods create nodes for Genes, Terms, XRefs,
+        # DBs and edges between them
         self.genes_col()
         self.genes_dat()
         self.gene_links()
@@ -970,6 +1076,7 @@ class MetaCyc():
 
         # Transcription units
         self.transunits_dat()
+        self.add_sequences()
 
         # Compounds
         self.compounds_dat()
@@ -1076,7 +1183,7 @@ class MetaCyc():
                     location = self._location(
                             obj.attr_check("LEFT_END_POSITION"), 
                             obj.attr_check("RIGHT_END_POSITION"),
-                            obj.attr_check("TRANSCRIPTION-DIRECTION"))
+                            obj.attr_check("TRANSCRIPTION_DIRECTION"))
                     gene = Gene(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid),
                                 start=location[0],
@@ -1084,13 +1191,26 @@ class MetaCyc():
                                 strand=location[2],
                                 product=obj.attr_check("PRODUCT"))
                     self.genes.append(gene)
+
+                    # creating a Term for gene name
+                    # (Gene) -[:HAS_NAME]-> (Term)
                     self.name_to_terms(gene)
 
                     # creating Terms for gene name synonyms
+                    # (Gene) -[:HAS_NAME]-> (Term)
                     obj.links_to_synonyms(gene, self)
 
                     # creating XRef and DB nodes for gene name dblinks
+                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                     obj.links_to_db(gene, self)
+
+                    # creating edges to CCP
+                    # (Gene) -[:PART_OF]-> (CCP)
+                    obj.feature_ccp_location(gene, self)
+
+                    # creating edges to the Organism node
+                    # (Gene) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(gene, self)
 
                 print "A list with %d genes have been " \
                       "created!" % len(self.genes)
@@ -1104,17 +1224,28 @@ class MetaCyc():
 
                         # let's check that genes with the same id have
                         # the same name
-                        #obj.name_check(gene)
+                        obj.name_check(gene)
 
                         # let's check that genes with the same id have
                         # the same location
                         obj.location_check(gene)
 
                         # creating Terms for gene name synonyms
+                        # (Gene) -[:HAS_NAME]-> (Term)
                         obj.links_to_synonyms(gene, self)
 
                         # creating XRef and DB nodes for gene name dblinks
+                        # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                         obj.links_to_db(gene, self)
+
+                        # creating edges to CCP
+                        # (Gene) -[:PART_OF]-> (CCP)
+                        obj.feature_ccp_location(gene, self)
+
+                        # creating edges to the Organism node
+                        # (Gene) -[:PART_OF]-> (Organism)
+                        obj.links_to_organism(gene, self)
+
                     except:
                         pass
             else:
@@ -1123,7 +1254,7 @@ class MetaCyc():
     def gene_links(self):
         """
         The method creates links from genes to Uniprot entries,
-        It forms (gene) -[:EVIDENCE]-> (xref) -[:LINK_TO]-> (DB:Uniprot) path.
+        It forms (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB:Uniprot) path.
         """
         if len(self.genes) != 0:
             try:
@@ -1140,6 +1271,8 @@ class MetaCyc():
                     if len(gene) == 0:
                         continue
 
+                    # creating links to Uniprot
+                    # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB:Uniprot)
                     xref = XRef(chunks[1])
                     self.xrefs.append(xref)
                     self.edges.append(CreateEdge(gene[0], xref, 'EVIDENCE'))
@@ -1164,7 +1297,7 @@ class MetaCyc():
             for uid in datfile.names:
                 obj = datfile.data[uid]
 
-                # we skip all modified rnas records
+                # skipping all modified rnas records
                 if hasattr(obj, "UNMODIFIED_FORM"):
                     continue
                 if obj.TYPES[:6] == 'Charge':
@@ -1174,7 +1307,7 @@ class MetaCyc():
                 gene = [g for g in self.genes
                         if g.uid == obj.GENE or g.name == obj.GENE]
 
-                # creating rna object (3 types)
+                # creating RNA object (3 types)
                 if len(gene) == 1:
                     gene = gene[0]
                     if obj.TYPES[-5:] == '-RNAs':
@@ -1192,15 +1325,24 @@ class MetaCyc():
                     continue
 
                 self.rnas.append(rna)
+
+                # creating a Term for the RNA name
+                # (RNA) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(rna)
 
                 # creating Terms for RNAs name synonyms
+                # (RNA) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(rna, self)
 
-                # creating edges gene -[ENCODES]-> rna
+                # creating edges (Gene) -[ENCODES]-> (RNA)
                 self.edges.append(CreateEdge(gene, rna, 'ENCODES'))
 
+                # creating an edge to the Organism node
+                # (RNA) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(rna, self)
+
                 # creating a node for rna modification (if it exists)
+                # (RNA) -[:FORMS]-> (Unspecified)
                 if hasattr(obj, "MODIFIED_FORM"):
                     uid = obj.MODIFIED_FORM.replace("|", "")
                     mod_obj = datfile.data[uid]
@@ -1209,8 +1351,12 @@ class MetaCyc():
                     self.other_nodes.append(modification)
                     self.name_to_terms(modification)
 
-                    # creating edges rna -[FORMS]-> modification
+                    # creating edges
                     self.edges.append(CreateEdge(rna, modification, 'FORMS'))
+
+                    # creating an edge to the Organism node
+                    # (Unspecified) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(modification, self)
 
             print "A list with %d RNAs has been created!" % len(self.rnas)
             print "No genes in the database for %d RNAs." % notfound
@@ -1221,15 +1367,22 @@ class MetaCyc():
         """
         datfile = self._read_dat('terminators.dat')
         if datfile is not None:
-            unmapped =0
+            unmapped = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
+
+                # skippin unmapped terminators
                 if hasattr(obj, "UNMAPPED_COMPONENT_OF"):
                     unmapped += 1
                     continue
                 ter = Terminator(uid=uid, start=obj.LEFT_END_POSITION,
                                  end=obj.RIGHT_END_POSITION)
                 self.terminators.append(ter)
+
+                # creating edges to CCP
+                # (Terminator) -[:PART_OF]-> (CCP)
+                obj.feature_ccp_location(ter, self)
+
             print "A list with %d terminators has been created!\n" \
                   "There were %d unmapped elements, they were " \
                   "skipped..." % (len(self.terminators), unmapped)
@@ -1253,7 +1406,18 @@ class MetaCyc():
                                tss=obj.ABSOLUTE_PLUS_1_POS,
                                strand="unknown", seq=None)
                 self.promoters.append(pro)
+
+                # creating a Term for the promoter name
+                # (Promoter) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(pro)
+
+                # creating edges to CCP
+                # (Promoter) -[:PART_OF]-> (CCP)
+                obj.feature_ccp_location(pro, self)
+
+                # creating an edge to the Organism node
+                # (Promoter) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(pro, self)
 
             print "A list with %d promoters has been created!\n" \
                   "There were %d unmapped elements, they were " \
@@ -1285,59 +1449,14 @@ class MetaCyc():
                                end=obj.ABS_CENTER_POS,
                                site_length=obj.attr_check("SITE_LENGTH"))
                     self.BSs.append(bsite)
+
+                # creating edges to CCP
+                # (BS) -[:PART_OF]-> (CCP)
+                obj.feature_ccp_location(bsite, self)
+
             print "A list with %d BSs has been created!\n" \
                   "There were %d unmapped BSs, they were " \
                   "skipped..." % (len(self.BSs), unmapped)
-
-    def create_organism(self):
-        """
-        The method creates an Organism node
-        """
-        version_status = self._set_version()
-        if version_status == 'OK':
-            self.organism.append(Organism(name=self.organism_name))
-        else:
-            raise UserWarning('There is no name in self.organism_name!')
-
-    def create_ccp(self):
-        """
-        The method reads data in .nt-file and creates chromosomes, contigs
-        or plasmids.
-        """
-        try:
-        # reading genome sequence from .nt-file
-            for mcfile in os.listdir(self.path):
-                if mcfile.endswith(".nt"):
-                    filename = mcfile
-            f = open(self.path + filename, "rU")
-            records = list(SeqIO.parse(f, "fasta"))
-            f.close()
-        except:
-            raise UserWarning("There is no .nt-file!")
-
-        # Creating chromosomes, contigs or plasmids
-        for record in records:
-            name = record.description.split('|')[-1]
-            length = len(record.seq)
-            record_id = record.name.split('|')[-1]
-            #print record_id, length, name
-            if ('complete genome' in record.description or \
-                        'complete sequence' in record.description) and \
-                            'lasmid' not in record.description:
-                ccp_obj = Chromosome(name=name, length=length,
-                                     accesion=record_id, type='unknown')
-            elif 'ontig' in record.description:
-                ccp_obj = Contig(name=name, length=length,
-                                 accesion=record_id, type='unknown')
-            elif 'lasmid' in record.description:
-                ccp_obj = Plasmid(name=name, length=length,
-                                  accesion=record_id, type='unknown')
-            else:
-                raise UserWarning('Unknown genome element')
-
-            self.ccp.append(ccp_obj)
-            self.edges.append(
-                CreateEdge(ccp_obj, self.organism[0], 'PART_OF'))
 
     def transunits_dat(self):
         """
@@ -1365,9 +1484,17 @@ class MetaCyc():
                     notcomplete += 1
 
                 self.TUs.append(tu_obj)
+
+                # creating a Term for the RNA name
+                # (TU) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(tu_obj)
 
-                genes = [c for c in comps if c.__class__.__name__ == "Gene"]
+                # creating an edge to the Organism node
+                # (TU) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(tu_obj, self)
+
+                # searching for genes in a TU
+                genes = [c for c in comps if isinstance(c, Gene)]
 
                 # if there are no genes
                 if len(genes) == 0:
@@ -1382,37 +1509,52 @@ class MetaCyc():
                 # creating edges and rewriting strand values to promoters,
                 # terminators and BSs
                 for comp in comps:
-                    comp_class = comp.__class__.__name__
-                    if comp_class == "Gene":
-                        self.edges.append(
-                            CreateEdge(tu_obj, comp, 'CONTAINS'))
-                    else:
+                    if not isinstance(comp, Gene):
                         comp.strand = test.strand
-                        # rewriting coordinates and sequences for promoters
-                        if comp_class == "Promoter":
-                            if comp.strand == 'forward':
-                                comp.start = comp.start - 60
-                                comp.end = comp.end + 15
-                            elif comp.strand == 'reverse':
-                                comp.start = comp.start - 15
-                                comp.end = comp.end + 60
-                            if "genome" in locals():
-                                if comp.start < 0:
-                                    comp.start = 0
-                                elif comp.start > len(genome):
-                                    comp.start = len(genome)
-                                if comp.end < 0:
-                                    comp.end = 0
-                                elif comp.end > len(genome):
-                                    comp.end = len(genome)
-                                seq = genome[comp.start + 1 : comp.end + 1]
-                                comp.seq = seq
-                        self.edges.append(
-                            CreateEdge(tu_obj, comp, 'CONTAINS'))
+                    self.edges.append(CreateEdge(tu_obj, comp, 'CONTAINS'))
+
+
             print "A list with %d transcription units has been created!\n" \
                   "There were %d incomplete transcription units...\n" \
                   "No information about %d transcription " \
                   "units." % (len(self.TUs), notcomplete, nocomps)
+
+    def add_sequences(self):
+        """
+        The method rewrites coordinates value and adds sequences to
+        objects (promoters).
+        """
+        sources = [edge.source for edge in self.edges
+                 if edge.label == 'PART_OF' and
+                    isinstance(edge.source, Promoter) and
+                    (isinstance(edge.target, Chromosome) or
+                     isinstance(edge.target, Contig) or
+                     isinstance(edge.target, Plasmid))]
+        targets = [edge.target for edge in self.edges
+                 if edge.label == 'PART_OF' and
+                    isinstance(edge.source, Promoter) and
+                    (isinstance(edge.target, Chromosome) or
+                     isinstance(edge.target, Contig) or
+                     isinstance(edge.target, Plasmid))]
+        for promoter in self.promoters:
+            if promoter.strand in ('unknown', 'both'):
+                continue
+            if promoter.strand == 'reverse':
+                promoter.start = promoter.start - 15
+                promoter.end = promoter.end + 60
+            else:
+                promoter.start = promoter.start - 60
+                promoter.end = promoter.end + 15
+            i = sources.index(promoter)
+            ccp_name = targets[i].name
+            ccp_seq = [self.seqs[key][1] for key in self.seqs.keys()
+                       if self.seqs[key][0] == ccp_name][0]
+            if promoter.start < 0:
+                promoter.start = 1
+            if promoter.end > len(ccp_seq):
+                promoter.end = len(ccp_seq)
+
+            promoter.seq = ccp_seq[promoter.start - 1 : promoter.end - 1]
 
     def compounds_dat(self):
         """
@@ -1430,12 +1572,17 @@ class MetaCyc():
                                     smiles=obj.attr_check("SMILES"),
                                     type=obj.attr_check("TYPES"))
                 self.compounds.append(compound)
+
+                # creating a Term for the Compound name
+                # (Compound) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(compound)
 
                 # creating Terms for compounds name synonyms
+                # (Compound) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(compound, self)
 
                 # creating XRef and DB nodes for compounds dblinks
+                # (Compound) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                 obj.links_to_db(compound, self)
 
             print "A list with %d compounds has been " \
@@ -1489,13 +1636,22 @@ class MetaCyc():
                     warnings.warn("Unexpected peptide types! "
                                   "Let's skip it... \nThe object uid %s" % uid)
                     continue
+
+                #  creating a Term for the Compound name
+                # (Peptide) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(peptide)
                 
                 # creating Terms for peptide name synonyms
+                # (Peptide) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(peptide, self)
 
                 # creating XRef and DB nodes for peptide dblinks
+                # (Peptide) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB)
                 obj.links_to_db(peptide, self)
+
+                # creating an edge to the Organism node
+                # (Peptide) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(peptide, self)
 
                 # creating XRef and DB node for GO-terms
                 if hasattr(obj, 'GO_TERMS'):
@@ -1518,9 +1674,13 @@ class MetaCyc():
                     self.other_nodes.append(modification)
                     self.name_to_terms(modification)
 
-                    # creating edges peptide -[FORMS]-> modification
+                    # creating edges (Peptide) -[:FORMS]-> (Unspecified)
                     self.edges.append(
                         CreateEdge(peptide, modification, 'FORMS'))
+
+                    # creating an edge to the Organism node
+                    # (Unspecified) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(modification, self)
 
             for uid in complexes:
                 obj = datfile.data[uid]
@@ -1528,16 +1688,26 @@ class MetaCyc():
                 # checking if a complex already in self.complexes
                 complex_check = [i for i in self.complexes if i.uid == uid]
                 if len(complex_check) == 0:
+                    mol_weight = obj.attr_check("MOLECULAR_WEIGHT_KD")
                     complex_obj = Complex(uid=uid,
                                           name=obj.attr_check("COMMON_NAME", uid),
-                                          molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                                          molecular_weight_kd=mol_weight)
                     self.complexes.append(complex_obj)
+
+                    #  creating a Term for the Compound name
+                    # (Complex) -[:HAS_NAME]-> (Term)
                     self.name_to_terms(complex_obj)
+
                 else:
                     complex_obj = complex_check[0]
 
                 # creating Terms for complex name synonyms
+                # (Complex) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(complex_obj, self)
+
+                # creating an edge to the Organism node
+                # (Complex) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(complex_obj, self)
 
                 # creating XRef and DB node for GO-terms
                 if hasattr(obj, 'GO_TERMS'):
@@ -1545,8 +1715,9 @@ class MetaCyc():
                         goterm = goterm.replace('|', '')
                         xref = XRef(goterm)
                         self.xrefs.append(xref)
-                        self.edges.append(CreateEdge(complex_obj, xref, 'EVIDENCE'))
-                        db_obj = self.db_checker("GO")
+                        self.edges.append(
+                            CreateEdge(complex_obj, xref, 'EVIDENCE'))
+                        db_obj = self.db_checker("GeneOntology")
                         self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
 
                 if hasattr(obj, "COMPONENTS"):
@@ -1562,18 +1733,28 @@ class MetaCyc():
                         if len(components) == 1:
                             component = components[0]
 
-                        # if a component is a complex, that hasn't been created yet...
+                        # if a component is a complex, that hasn't
+                        # been created yet...
                         elif len(components) == 0 and comp[:4] == 'CPLX':
+                            mol_weight = obj.attr_check("MOLECULAR_WEIGHT_KD")
                             component = Complex(uid=comp,
                                                 name=obj.attr_check("COMMON_NAME", comp),
-                                                molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                                                molecular_weight_kd=mol_weight)
                             self.complexes.append(component)
+
+                            # creating Terms for complex name synonyms
+                            # (Complex) -[:HAS_NAME]-> (Term)
                             self.name_to_terms(component)
+
+                            # creating an edge to the Organism node
+                            # (Complex) -[:PART_OF]-> (Organism)
+                            obj.links_to_organism(component, self)
 
                         # if a component is something else
                         else:
-                            print "The complex with %s is assigned before " \
-                                  "its components (%s)!" % (complex_obj.uid, comp)
+                            print "The complex with %s is assigned " \
+                                  "before its components " \
+                                  "(%s)!" % (complex_obj.uid, comp)
                             continue
                         self.edges.append(
                             CreateEdge(component, complex_obj, 'PART_OF'))
@@ -1604,6 +1785,7 @@ class MetaCyc():
                 # creating an edge to the protein
                 # Protein -[:HAS_FEATURE]-> ProtFeature
                 obj.links_to_protein(protfeature, self)
+
             print "A list with %d protein features has been " \
                   "created!" % len(self.protfeatures)
 
@@ -1628,7 +1810,14 @@ class MetaCyc():
                         name = obj.COMMON_NAME
                     sigma = SigmaFactor(name=name)
                     self.proteins.append(sigma)
+
+                    # creating Terms for complex name synonyms
+                    # (Sigma_Factor) -[:HAS_NAME]-> (Term)
                     self.name_to_terms(sigma)
+
+                    # creating an edge to the Organism node
+                    # (Sigma_Factor) -[:PART_OF]-> (Organism)
+                    obj.links_to_organism(sigma, self)
 
                     # creating an edge to a poplypetide/complex
                     protein = [p for p in (self.polypeptides + self.complexes)
@@ -1661,13 +1850,22 @@ class MetaCyc():
                 enzyme = Enzyme(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid))
                 self.proteins.append(enzyme)
+
+                # creating Terms for complex name synonyms
+                # (Enzyme) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(enzyme)
+
+                # creating an edge to the Organism node
+                # (Enzyme) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(enzyme, self)
 
                 # creating edge to a polypeptide or complex
                 protein = [p for p in (self.polypeptides + self.complexes)
                            if p.uid == obj.ENZYME]
+
                 if len(protein) == 0:
                     continue
+
                 self.edges.append(CreateEdge(protein[0], enzyme, 'IS_A'))
                 i += 1
             print "%d enzymes have been created!" % i
@@ -1764,7 +1962,12 @@ class MetaCyc():
                      'CCO-PERI-BAC', 'CCO-CE-BAC-POS', 'CCO-PM-BAC-POS',
                      'UNKNOWN']
         for cname, cco in zip(common_names, cco_names):
-            self.compartments.append(Compartment(name=cname, uid=cco))
+            compartment = Compartment(name=cname, uid=cco)
+            self.compartments.append(compartment)
+
+            # creating an edge to the Organism node
+            # (Compartment) -[:PART_OF]-> (Organism)
+            obj.links_to_organism(compartment, self)
 
     def reactions_dat(self):
         """
@@ -1789,6 +1992,7 @@ class MetaCyc():
                     obj.links_to_enzymes(reaction, self)
 
                     # creating edges to reaction name synonyms
+                    # (Reaction) -[:HAS_NAME]-> (Term)
                     obj.links_to_synonyms(reaction, self)
 
                     # searching for exact match of name/uid of objects
@@ -1828,6 +2032,9 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
+
+                # creating edges to reaction name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(pathway)                
                
                 # creating edges to reactions in the pathway
@@ -1839,6 +2046,7 @@ class MetaCyc():
                 obj.reactions_order(self)
 
                 # creating Terms for pathway name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(pathway, self)
 
             for uid in superpath:
@@ -1848,6 +2056,9 @@ class MetaCyc():
                                   type=obj.TYPES,
                                   reaction_layout=obj.attr_check("REACTION_LAYOUT"))
                 self.pathways.append(pathway)
+
+                # creating edges to reaction name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(pathway) 
 
                 # creating edges to reactions in the pathway
@@ -1856,6 +2067,7 @@ class MetaCyc():
                 obj.links_to_reactions(pathway, self)
 
                 # creating Terms for pathway name synonyms
+                # (Pathway) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(pathway, self)
                 
             print "A list with %d pathways has been " \
@@ -1880,6 +2092,7 @@ class MetaCyc():
                     for line in data:
                         if line[0] == '#' or line[:3] == "UNI":
                             continue
+
                         chunks = line.replace('\n', '').split('\t')
                         genes_uids = [chunk for chunk in chunks[2:]
                                       if chunk != '']
@@ -1924,7 +2137,11 @@ class MetaCyc():
                 chunks = line.replace('\n', '').split('\t')
                 transporter = Transporter(name=chunks[1], reaction=chunks[2])
                 self.proteins.append(transporter)
+
+                # creating edges to reaction name synonyms
+                # (Transporter) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(transporter)
+
                 protein = [p for p in (self.oligopeptides + self.polypeptides +
                                        self.complexes) if p.uid == chunks[0]]
                 if len(protein) == 0:
@@ -1933,8 +2150,13 @@ class MetaCyc():
                 # creating edges (Peptide) -[:IS_A]-> (Transporter)
                 # creating edges (Complex) -[:IS_A]-> (Transporter)
                 self.edges.append(CreateEdge(protein[0], transporter, 'IS_A'))
+
+                # creating an edge to the Organism node
+                # (Transporter) -[:PART_OF]-> (Organism)
+                obj.links_to_organism(transporter, self)
+
             transnum = len([p for p in self.proteins
-                            if p.__class__.__name__ == "Transporter"])
+                            if isinstance(p, Transporter)])
             print "%d protein-transporters have been created!" % transnum
         except:
             print "There is no pathways.col file! Let's skip it..."
@@ -1973,10 +2195,10 @@ class MetaCyc():
 
         # constructing tables
         # Elements of the Genome
-        table1 = tabulate([[len(self.genes), len(self.rnas),
+        table1 = tabulate([[len(self.ccp), len(self.genes), len(self.rnas),
                             len(self.promoters), len(self.terminators),
                             len(self.BSs), len(self.TUs)]],
-                          headers=("Genes", "RNAs", "Promoters", "Terminators",
+                          headers=("CCP", "Genes", "RNAs", "Promoters", "Terminators",
                                    "DNA Binding sites", "TUs"),
                           tablefmt="grid")
 
@@ -2050,7 +2272,7 @@ class MetaCyc():
 
         # creating nodes
         nodes_dict = {}
-        for node, i in zip(allnodes, xrange(0, len(allnodes))):
+        for node, i in enumerate(allnodes, xrange(0, len(allnodes))):
             mydict = node.__dict__
             for key in mydict.keys():
                 if mydict[key] is None:
@@ -2082,15 +2304,6 @@ class MetaCyc():
         nx.write_graphml(graph, filename + '.graphml')
         nx.write_gml(graph, filename + '.gml')
         return graph
-
-    def organism_and_links(self, name, genome_status, parts):
-        organism = Organism(name=name, genome_status=genome_status, parts=parts)
-        self.other_nodes.append(organism)
-        nodes = self.genes + self.rnas + self.promoters + self.terminators + \
-                self.oligopeptides + self.polypeptides + self.proteins + \
-                self.BSs + self.TUs + self.complexes + self.compartments
-        for node in nodes:
-            self.edges.append(CreateEdge(node, organism, 'PART_OF'))
 
 ###############################################################################
 

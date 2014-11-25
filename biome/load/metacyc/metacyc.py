@@ -28,7 +28,7 @@ def make_name(name):
     """
     The function formats a string to be suitable name for storage.
     """
-    return re.sub("[!,.'<>\[\];*-/+()\"]", "_", name).replace(' ', '_')
+    return re.sub("[!,.'<>\[\];*-/+()\"]", "_", name).replace(' ', '_').replace('?', '')
 
 ###############################################################################
 
@@ -55,7 +55,7 @@ class _DatSet():
     def __str__(self):
         return "_DatSet constructed for %s file" % self.filename
 
-    def readfile(self, sep=" - ", dict_keys='UNIQUE-ID'):
+    def readfile(self, sep=" - ", dict_keys='UNIQUE-ID', db_format='Yes'):
         """
         The methods works with dat-files format.
         """
@@ -65,8 +65,8 @@ class _DatSet():
             f.close()
             data = [line for line in data if line[0] != '#' and line[:2] != ';;' and line[:2] != '\n']
             chunks = {}
-            chunk = _DatObject()
-            i = 0
+            chunk = _DatObject(db_format)
+
             for line in data:
                 if line[:len(dict_keys)] == dict_keys:
                     uid = line.replace("\n", '').split(sep)[1]
@@ -74,7 +74,7 @@ class _DatSet():
                 elif line[:2] == '//':
                     chunk.formatting()
                     chunks[uid] = chunk
-                    chunk = _DatObject()
+                    chunk = _DatObject(db_format)
                 elif line[:1] == '/':
                     pass
                 else:
@@ -119,8 +119,8 @@ class _DatSet():
                         setattr(chunk, attr, attrval)
                     else:
                         setattr(chunk, attr, sp_line[1])
-
-                i += 1
+            if len(chunk) > 0:
+                chunks[uid] = chunk
             self.data = chunks
             if len(chunks) == 0:
                 warnings.warn("There are no data in the"
@@ -137,12 +137,15 @@ class _DatObject():
     upgrade entries and create a few specific links for nodes in a MetaCyc
     object based on the information in entries.
     """
-    def __init__(self):
+    def __init__(self, db_format):
         """
-        An entry could have different sets of attributes, that is why no
-        attributes are predefined.
+        An entry could have different sets of attributes, that is why they are
+        not predefined.
         """
-        pass
+        self.db_format = db_format
+
+    def __len__(self):
+        return len(self.__dict__) - 1
 
     def dblink_format(self):
         """
@@ -237,7 +240,8 @@ class _DatObject():
         The method collects all methods that are required for correct reading
         and formatting of data in .dat-file
         """
-        self.dblink_format()
+        if self.db_format == 'Yes':
+            self.dblink_format()
         self.location_format()
         self.mol_weight_format()
         try:
@@ -927,7 +931,7 @@ class MetaCyc():
         try:
             # reading the file
             datfile = _DatSet(filename, self.path)
-            datfile.readfile()
+            datfile.readfile(db_format='Yes')
             return datfile
         except:
             print "There is no %s file in the database or it has wrong " \
@@ -995,54 +999,122 @@ class MetaCyc():
         The method reads data in .nt-file and creates chromosomes, contigs
         or plasmids.
         """
+        record = None
         input_path = self.path.replace('/data', '/input')
-        org_elements = _DatSet(filename='genetic-elements.dat', path=input_path)
-        org_elements.readfile(sep='\t', dict_keys='ID')
+        org_elements = _DatSet(filename='genetic-elements.dat',
+                               path=input_path)
+        org_elements.readfile(sep='\t', dict_keys='ID', db_format='No')
 
         for elem_id in org_elements.names:
             elem = org_elements.data[elem_id]
-            try:
-                gb_file = elem.ANNOT_FILE
-                parser = GenBank.RecordParser()
-                gb_record = parser.parse(open(input_path + gb_file))
-            except:
-                UserWarning('There is no %s!' % gb_file)
+            annot_file = elem.ANNOT_FILE.replace(' ', '')
+            if annot_file[-3:] == 'gbk' or annot_file[-2:] == 'gb':
+                try:
+                    parser = GenBank.RecordParser()
+                    record = parser.parse(open(input_path + annot_file))
+                except:
+                    UserWarning('There is no %s!' % annot_file)
 
-            # creating chromosomes, contigs, plasmids
-            name = gb_record.definition
-            length = int(gb_record.size)
-            type = gb_record.residue_type.split(' ')[-1] # circular/linear
+                # creating chromosomes, contigs, plasmids
+                name = record.definition
+                length = int(record.size)
+                type = record.residue_type.split(' ')[-1] # circular/linear
 
-            # guessing what type of CCP the record is by its definition
-            if ('complete genome' in gb_record.definition or \
-                         'complete sequence' in gb_record.definition) and \
-                             'lasmid' not in gb_record.definition:
-                 ccp_obj = Chromosome(name=name, length=length, type=type)
-            elif 'lasmid' in gb_record.definition:
-                 ccp_obj = Plasmid(name=name, length=length, type=type)
+                # guessing what type of CCP the record is by its definition
+                if ('complete genome' in record.definition or \
+                             'complete sequence' in record.definition) and \
+                                 'lasmid' not in record.definition:
+                     ccp_obj = Chromosome(name=name, length=length, type=type)
+                elif 'lasmid' in record.definition:
+                     ccp_obj = Plasmid(name=name, length=length, type=type)
+                else:
+                     ccp_obj = Contig(name=name, length=length, type=type)
+
+                self.ccp.append(ccp_obj)
+
+                # creating edges [CCP]-[:PART_OF]->(Organism)
+                self.edges.append(
+                    CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+
+                # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
+                refseq = XRef(id=record.locus)
+                self.xrefs.append(refseq)
+                self.edges.append(
+                    CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
+                gb = self.db_checker('GenBank')
+                self.edges.append(
+                    CreateEdge(refseq, gb, 'LINK_TO'))
+
+                # storing sequences in seqs dictionary
+                self.seqs[elem_id] = (name, record.sequence)
+
+            elif annot_file[-2:] == 'pf':
+                try:
+                    fasta_file = annot_file.replace('pf', 'fna')
+                    record = SeqIO.read(open(input_path + fasta_file), "fasta")
+                except:
+                    UserWarning('There is no %s!' % fasta_file)
+
+                try:
+                    refseq_id = elem.DBLINKS.replace('NCBI-REFSEQ:','').split('.')[0]
+                except:
+                    UserWarning('There is no RefSeq Id in the genetic-elements.dat')
+
+                # creating chromosomes, contigs, plasmids
+                name = elem_id
+                length = len(record.seq)
+                try:
+                    if elem.CIRCULAR.replace(' ', '') == 'Y':
+                        type = 'circular'
+                    else:
+                        type = 'linear'
+                except:
+                    type = 'unknown'
+
+                # guessing what type of CCP the record is by its definition
+                if 'CHR' in annot_file:
+                     ccp_obj = Chromosome(name=name, length=length, type=type)
+                elif 'PLASMID' in annot_file:
+                     ccp_obj = Plasmid(name=name, length=length, type=type)
+                else:
+                     ccp_obj = Contig(name=name, length=length, type=type)
+
+                self.ccp.append(ccp_obj)
+
+                # creating edges [CCP]-[:PART_OF]->(Organism)
+                self.edges.append(
+                    CreateEdge(ccp_obj, self.organism, 'PART_OF'))
+
+                # creating edges
+                # [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
+                refseq = XRef(id=refseq_id)
+                self.xrefs.append(refseq)
+                self.edges.append(CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
+                gb = self.db_checker('GenBank')
+                self.edges.append(CreateEdge(refseq, gb, 'LINK_TO'))
+
+                # storing sequences in seqs dictionary
+                self.seqs[elem_id] = (name, record.seq)
+
             else:
-                 ccp_obj = Contig(name=name, length=length, type=type)
+                Exception('Unknown error!')
 
-            self.ccp.append(ccp_obj)
-
-            # creating edges [CCP]-[:PART_OF]->(Organism)
-            self.edges.append(
-                CreateEdge(ccp_obj, self.organism, 'PART_OF'))
-
-            # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
-            refseq = XRef(id=gb_record.locus)
-            self.xrefs.append(refseq)
-            self.edges.append(
-                CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
-            gb = self.db_checker('GenBank')
-            self.edges.append(
-                CreateEdge(refseq, gb, 'LINK_TO'))
-
-            # storing sequences in seqs dictionary
-            self.seqs[elem_id] = (name, gb_record.sequence)
-
-        # renaming Organism
-        self.organism.name = gb_record.organism
+            # renaming Organism
+            if record.__class__.__name__ == 'Record':
+                self.organism.name = record.organism
+            elif record.__class__.__name__ == 'SeqRecord':
+                org_dat = _DatSet(filename='organism.dat', path=input_path)
+                org_dat.readfile(sep='\t', dict_keys='NAME')
+                new_name = org_dat.names[0]
+                try:
+                    new_name += ' %s' % org_dat.data[org_dat.names[0]].SUBSPECIES
+                except:
+                    pass
+                try:
+                    new_name += ' %s' % org_dat.data[org_dat.names[0]].STRAIN
+                except:
+                    pass
+                self.organism.name = new_name
 
     def extract_data(self):
         """

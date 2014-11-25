@@ -1967,7 +1967,7 @@ class MetaCyc():
             # creating an edge to the Organism node
             # (Compartment) -[:PART_OF]-> (Organism)
             self.edges.append(
-                CreateEdge(compartment, self.organism[0], 'PART_OF'))
+                CreateEdge(compartment, self.organism, 'PART_OF'))
 
     def reactions_dat(self):
         """

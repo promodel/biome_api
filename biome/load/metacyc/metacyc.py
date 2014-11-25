@@ -982,8 +982,6 @@ class MetaCyc():
                     chunks = line.replace('\n', '').split('\t')
                     if chunks[0] == 'ORGID':
                         self.orgid = chunks[1]
-                    elif chunks[0] == 'ORGANISM':
-                        self.organism_name = chunks[1]
                     elif chunks[0] == 'VERSION':
                         self.version = chunks[1]
                     elif chunks[0] == 'RELEASE-DATE':
@@ -1008,7 +1006,7 @@ class MetaCyc():
                 parser = GenBank.RecordParser()
                 gb_record = parser.parse(open(input_path + gb_file))
             except:
-                UserWarning('There is no %s!') % gb_file
+                UserWarning('There is no %s!' % gb_file)
 
             # creating chromosomes, contigs, plasmids
             name = gb_record.definition
@@ -1968,7 +1966,8 @@ class MetaCyc():
 
             # creating an edge to the Organism node
             # (Compartment) -[:PART_OF]-> (Organism)
-            obj.links_to_organism(compartment, self)
+            self.edges.append(
+                CreateEdge(compartment, self.organism, 'PART_OF'))
 
     def reactions_dat(self):
         """
@@ -2271,7 +2270,6 @@ class MetaCyc():
 
         graph = nx.DiGraph()
 
-        d = 0
         # creating nodes
         nodes_dict = {}
 
@@ -2291,8 +2289,6 @@ class MetaCyc():
                 graph.add_node(j, mydict)
                 nodes_dict[node_tuple] = j
                 j += 1
-            else:
-                d += 1
         print "Nodes done!"
 
         # creating edges
@@ -2314,10 +2310,9 @@ class MetaCyc():
                 problem += 1
                 continue
 
-        print problem, noproblem, d
+        print problem, noproblem
         nx.write_graphml(graph, filename + '.graphml')
-        return nodes_dict
-
+        return graph
 
 ###############################################################################
 

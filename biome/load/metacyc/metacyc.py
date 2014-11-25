@@ -902,19 +902,19 @@ class MetaCyc():
             raise TypeError('The start argument must be an integer!')
         if not isinstance(end, int):
             raise TypeError('The end argument must be an integer!')
-	if trans_dir not in ['+', '-', None]:
+        if trans_dir not in ['+', '-', None]:
             raise ValueError('The trans_dir argument must be an integer!')
-	if trans_dir == '+':
-	  return [start, end, 'forward']
-	elif trans_dir == '-':
-	  return [start, end, 'reverse']
-	else:
-	  if start < end:
-	      return [start, end, 'forward']
-	  elif start > end:
-	      return [end, start, 'reverse']
-	  else:
-	      return [start, end, 'unknown']
+        if trans_dir == '+':
+            return [start, end, 'forward']
+        elif trans_dir == '-':
+            return [start, end, 'reverse']
+        else:
+            if start < end:
+                return [start, end, 'forward']
+            elif start > end:
+                return [end, start, 'reverse']
+            else:
+                return [start, end, 'unknown']
 
     def _set_version(self):
         """

@@ -17,7 +17,7 @@ def num2strand(num):
     if num == 1:
         strand = 'forward'
     elif num == -1:
-        strand = 'revers'
+        strand = 'reverse'
     else:
         strand = 'unknown'
     return strand
@@ -143,21 +143,26 @@ class GenBank():
             current_ccp.add_labels(ccp_label, 'BioEntity', 'DNA')
         else:
             current_ccp = search_ccp[0][0]
-
-        refseq = self.rec.annotations['accessions'][0]
-        check_xref = self.search_node('XRef', ['id'], [refseq])
-        if not check_xref:
-            # Create XRefs
-            refseq_node, refseq_link = self.db_connection.data_base.create(node({'id': refseq}),
-                                                                           rel(current_ccp, 'LINK_TO', 0))
-            refseq_node.add_labels('XRef')
-        else:
-            # check relation
-            if check_xref[0].
-            self.db_connection.data_base.create(current_ccp, 'LINK_TO', check_xref[0])
-
         self.ccp_list = [current_ccp, ccp_name, node2link(current_ccp)]
         self.db_connection.data_base.create(rel(self.ccp_list[0], 'PART_OF', self.organism_list[0]))
+
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'START ccp=node(%s), MATCH (ccp)-[e:EVIDENCE]->(xref) WHERE xref.id=%s RETURN e'
+        transaction.append(query)
+        transaction_res = list(transaction.commit())[0][0]
+        if not transaction_res:
+            refseq = self.rec.annotations['accessions'][0]
+            check_xref = self.search_node('XRef', ['id'], [refseq])
+            if not check_xref:
+                # Create XRefs
+                refseq_node, refseq_link = self.db_connection.data_base.create(node({'id': refseq}),
+                                                                               rel(current_ccp, 'LINK_TO', 0))
+                refseq_node.add_labels('XRef')
+            else:
+                # check relation
+                self.db_connection.data_base.create(current_ccp, 'EVIDENCE', check_xref[0])
+
 
     def feature2node(self):
         if not isinstance(self.rec, SeqRecord.SeqRecord):

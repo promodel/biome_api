@@ -45,6 +45,8 @@ class GenBank():
         self.organism_list = [None, None, None]
         self.ccp_list = [None, None, None]
         self.external_sources = {}
+        self.non_gene_list = ['mobile_element', 'repeat_region', 'rep_origin']
+        self.gene_product_list = ['CDS', 'tRNA', 'rRNA', 'tmRNA', 'ncRNA', 'mRNA']
 
     def upload(self):
         """
@@ -58,14 +60,12 @@ class GenBank():
         self.search_pattern_cypher()
 
         # Feature loop.
-        non_gene_list = ['mobile_element', 'repeat_region', 'rep_origin']
-        gene_product_list = ['CDS', 'tRNA', 'rRNA', 'tmRNA', 'ncRNA', 'mRNA']
         for i, feature in enumerate(self.rec.features):
             if feature.type == 'gene':
+                self.create_gene(i)
+            elif feature.type in self.non_gene_list or feature.type[:4] == 'misc':
                 pass
-            elif feature.type in non_gene_list or feature.type[:4] == 'misc':
-                pass
-            elif feature.type in gene_product_list:
+            elif feature.type in self.gene_product_list:
                 pass
             else:
                 print 'Unknown element %s was skipped.' % feature.type
@@ -178,40 +178,93 @@ class GenBank():
                 print self.rec.features[i].type
 
 
-    def create_cds(self, i):
-        cds = self.rec.features[i]
-        start = int(cds.location.start)
-        end = int(cds.location.end)
-        strand = num2strand(cds.location.strand)
+    def create_gene(self, i):
+        # Take info out of gene
+        gene = self.rec.features[i]
+        gene_dict = {'source': 'GenBank'}
         try:
-            gene_name = cds.qualifiers['gene']
+            gene_name = gene.qualifiers['gene']
+            gene_dict['name'] = gene_name
         except:
-            gene_name = cds.qualifiers['locus_tag']
-        check_gene = self.search_gene_pattern(start, end, strand)
+            gene_name = gene.qualifiers['locus_tag']
+            gene_dict['name'] = gene_name
+        # If there is no product of gene: RNA or CDS
+        if not ('RNA' or 'CDS' in self.rec.features[i+1].type):
+            try:
+                xrefs = gene.qualifiers['db_xref']
+            except:
+                xrefs = []
+            try:
+                gene_dict['product'] = gene.qualifiers['product']
+            except:
+                gene_dict['product'] = []
+            # raise UserWarning('gene without product.')
+
+        # Take info out if CDS/RNA
+        else:
+            if 'CDS' in self.rec.features[i+1].type:
+                gene_product = 'cds'
+            else:
+                gene_product = 'rna'
+            gene = self.rec.feaures[i+1]
+            gene_dict['locus_tag'] = gene.qualifiers['locus_tag']
+            gene_dict['product'] = gene.qualifiers['product']
+            try:
+                gene_dict['comment'] = gene.qualifiers['note']
+            except:
+                pass
+            try:
+                xrefs = gene.qualifiers['db_xref']
+            except:
+                xrefs = []
+            try:
+                gene_name = gene.qualifiers['gene']
+                gene_dict['name'] = gene_name
+            except:
+                gene_name = gene.qualifiers['locus_tag']
+                gene_dict['name'] = gene_name
+        # Find the gene
+        gene_dict['start'] = int(gene.location.start) + 1
+        gene_dict['end'] = int(gene.location.end)
+        gene_dict['strand'] = num2strand(gene.location.strand)
+        check_gene = self.search_gene_pattern(gene_dict['start'],
+                                              gene_dict['end'],
+                                              gene_dict['strand'])
+        # If gene is not found
         if not check_gene:
-            gene, part_of_org, part_of_ccp =\
+            # Create gene
+            gene_node, part_of_org, part_of_ccp =\
                 self.db_connection.data_base.create(
-                    node(
-                        {'product': cds.qualifiers['product'][0],
-                         'locus_tag': cds.qualifiers['locus_tag'][0],
-                         'start': start,
-                         'end': end,
-                         'strand': strand,
-                         'name': gene_name, 'source': 'GenBank'}),
+                    node(gene_dict),
                     rel(0, 'PART_OF', self.organism_list[0]),
                     rel(0, 'PART_OF', self.ccp_list[0]))
-            self.create_term(gene_name, gene)
-            self.create_xref(cds.qualifiers['db_xrefs'], gene)
+            gene_node.add_labels('Gene', 'Feature', 'DNA', 'BioEntity')
+            self.create_xref(xrefs, gene_node)
+            try:
+                self.create_term(gene_name, gene_node)
+            except:
+                pass
         else:
-            print 'Update gene'
+            # Update gene
             gene = check_gene[0][0]
             if not gene.get_properties()['name'] == gene_name:
                 self.create_term(gene_name, gene)
             source = [gene.get_properties()['source']]
-            source.append('GenBank')
-            gene.update_properties({'source': source})
-        if not self.rec.features[i-1].type == 'gene':
-            raise UserWarning('CDS without gene.')
+            if not 'GenBank' in source:
+                source.append('GenBank')
+                gene.update_properties({'source': source})
+            self.create_or_update_xref(gene, xrefs)
+        invoke = 'self.create_or_update_%s(rec.features[%d], gene)' % (gene_product, i)
+        eval(invoke)
+
+    def create_or_update_xref(self, gene, xrefs):
+        print 'To be implemented'
+
+    def create_or_update_rna(self, feature, gene):
+        print 'To be implemented'
+
+    def create_or_update_cds(self, feature, gene):
+        print 'To be implemented'
 
     def create_trna(self, i):
         rna = self.rec.features[i]

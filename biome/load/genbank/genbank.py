@@ -31,6 +31,8 @@ class BioGraphConnection():
         self.data_base = neo4j.GraphDatabaseService(self.db_link)
 
 class GenBank():
+    non_gene_list = ['mobile_element', 'repeat_region', 'rep_origin']
+    gene_product_list = ['CDS', 'tRNA', 'rRNA', 'tmRNA', 'ncRNA', 'mRNA']
     def __init__(self, gb_file, db_connection):
         if not isinstance(gb_file, str):
             raise TypeError('gb_file must be a string with filename.')
@@ -45,8 +47,6 @@ class GenBank():
         self.organism_list = [None, None, None]
         self.ccp_list = [None, None, None]
         self.external_sources = {}
-        self.non_gene_list = ['mobile_element', 'repeat_region', 'rep_origin']
-        self.gene_product_list = ['CDS', 'tRNA', 'rRNA', 'tmRNA', 'ncRNA', 'mRNA']
 
     def upload(self):
         """
@@ -84,19 +84,21 @@ class GenBank():
         return rec, seq_type
 
     def search_pattern_cypher(self):
-        taxon = self.rec.feature[0].qualifiers['db_xref'][0].split(':')[1]
+        taxon = self.rec.features[0].qualifiers['db_xref'][0].split(':')[1]
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
-        query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp)-[:EVIDENCE]->(xref:XRef) ' \
-                'WHERE org.taxon_id="%d" AND ccp.length=%d AND xref.id="%s" RETURN org, ccp, xref' \
-                % (taxon,
+        query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp:Chromosome)-[:EVIDENCE]->(xref:XRef) ' \
+                'WHERE org.name="%s" AND ccp.length=%d AND xref.id="%s" RETURN org, ccp, xref' \
+                % (self.rec.annotations['source'],
                    int(self.rec.features[0].location.end),
                    self.rec.annotations['accessions'][0])
         transaction.append(query)
-        transaction_res = list(transaction.commit())[0][0]
-        if not transaction_res:
+        transaction_res = list(transaction.commit())[0]
+        if transaction_res:
+            transaction_res = transaction_res[0]
             self.organism_list = [transaction_res[0], self.rec.annotations['organism'], node2link(transaction_res[0])]
             self.ccp_list = [transaction_res[1], self.rec.description, node2link(transaction_res[1])]
+            print 'Pattern found.'
         else:
             # Create or find organism
             self.create_or_update_organism()
@@ -141,27 +143,35 @@ class GenBank():
                                                                    'type': self.seq_type}))
             # Adding label
             current_ccp.add_labels(ccp_label, 'BioEntity', 'DNA')
+            print 'Chromosome was created.'
         else:
             current_ccp = search_ccp[0][0]
+            print 'Chromosome was found.'
         self.ccp_list = [current_ccp, ccp_name, node2link(current_ccp)]
         self.db_connection.data_base.create(rel(self.ccp_list[0], 'PART_OF', self.organism_list[0]))
 
+        # Check XRefs
+        refseq = self.rec.annotations['accessions'][0]
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
-        query = 'START ccp=node(%s), MATCH (ccp)-[e:EVIDENCE]->(xref) WHERE xref.id=%s RETURN e'
+        query = 'START ccp=node(%s) MATCH (ccp)-[e:EVIDENCE]->(xref) WHERE xref.id="%s" RETURN e' \
+                % (self.ccp_list[2], refseq)
         transaction.append(query)
-        transaction_res = list(transaction.commit())[0][0]
+        transaction_res = list(transaction.commit())[0]
         if not transaction_res:
-            refseq = self.rec.annotations['accessions'][0]
             check_xref = self.search_node('XRef', ['id'], [refseq])
             if not check_xref:
                 # Create XRefs
                 refseq_node, refseq_link = self.db_connection.data_base.create(node({'id': refseq}),
                                                                                rel(current_ccp, 'LINK_TO', 0))
                 refseq_node.add_labels('XRef')
+                print 'XRef was created.'
             else:
                 # check relation
-                self.db_connection.data_base.create(current_ccp, 'EVIDENCE', check_xref[0])
+                link_to, = self.db_connection.data_base.create(rel(current_ccp, 'LINK_TO', check_xref[0][0]))
+                print 'LINK was created.'
+        else:
+            print 'XRef was found.'
 
 
     def feature2node(self):
@@ -188,8 +198,9 @@ class GenBank():
         except:
             gene_name = gene.qualifiers['locus_tag']
             gene_dict['name'] = gene_name
+
         # If there is no product of gene: RNA or CDS
-        if not ('RNA' or 'CDS' in self.rec.features[i+1].type):
+        if not self.rec.features[i+1].type in ('RNA', 'CDS'):
             try:
                 xrefs = gene.qualifiers['db_xref']
             except:
@@ -266,15 +277,6 @@ class GenBank():
     def create_or_update_cds(self, feature, gene):
         print 'To be implemented'
 
-    def create_trna(self, i):
-        rna = self.rec.features[i]
-        start = int(rna.location.start)
-        end = int(rna.location.end)
-        strand = num2strand(rna.location.strand)
-        check_trna = self.search_node('tRNA', ['start', 'end', 'strand'], [start, end, strand])
-        if not check_trna:
-            trna, part_of_org = self.db_connection.data_base.create(node())
-
     def search_gene_pattern(self, start, end, strand):
         if not isinstance(start, int) or not isinstance(end, int):
             raise ValueError('start and end must be string.')
@@ -338,12 +340,17 @@ class GenBank():
             raise ValueError('Keys argument must be list.')
         if not values.__class__.__name__ in 'list':
             raise ValueError('Values argument must be list.')
+        if not len(keys) == len(values):
+            raise TypeError('The lengths of keys and values must be the same.')
 
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
         query = 'MATCH (node:%s) WHERE ' % label
         for key, value in zip(keys, values):
-            query += 'node.%s="%s" AND ' % (key, value)
+            if isinstance(value, int) or isinstance(value, float):
+                query += 'node.%s=%s AND ' % (key, value)
+            else:
+                query += 'node.%s="%s" AND ' % (key, value)
         query = query[:-4] + ' RETURN node'
         transaction.append(query)
         try:
@@ -351,5 +358,5 @@ class GenBank():
         except:
             raise UserWarning('Transaction failed.')
 
-# import doctest
-# doctest.testfile('test_genbank.txt')
+import doctest
+doctest.testfile('test_genbank.txt')

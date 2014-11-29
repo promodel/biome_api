@@ -46,7 +46,14 @@ class GenBank():
         self.db_connection = db_connection
         self.organism_list = [None, None, None]
         self.ccp_list = [None, None, None]
-        self.external_sources = {}
+        self.external_sources = self.get_external_db()
+
+    def get_external_db(self):
+        db_dict = {}
+        dbs = list(self.db_connection.data_base.find('DB'))
+        for db in dbs:
+            db_dict[db.get_properties()['name']] = db
+        return db_dict
 
     def upload(self):
         """
@@ -62,7 +69,7 @@ class GenBank():
         # Feature loop.
         for i, feature in enumerate(self.rec.features):
             if feature.type == 'gene':
-                self.create_gene(i)
+                self.make_gene_and_product(i)
             elif feature.type in self.non_gene_list or feature.type[:4] == 'misc':
                 pass
             elif feature.type in self.gene_product_list:
@@ -98,7 +105,7 @@ class GenBank():
             transaction_res = transaction_res[0]
             self.organism_list = [transaction_res[0], self.rec.annotations['organism'], node2link(transaction_res[0])]
             self.ccp_list = [transaction_res[1], self.rec.description, node2link(transaction_res[1])]
-            print 'Pattern found.'
+            print 'Pattern was found.'
         else:
             # Create or find organism
             self.create_or_update_organism()
@@ -163,7 +170,7 @@ class GenBank():
             if not check_xref:
                 # Create XRefs
                 refseq_node, refseq_link = self.db_connection.data_base.create(node({'id': refseq}),
-                                                                               rel(current_ccp, 'LINK_TO', 0))
+                                                                               rel(current_ccp, 'EVIDENCE', 0))
                 refseq_node.add_labels('XRef')
                 print 'XRef was created.'
             else:
@@ -174,122 +181,252 @@ class GenBank():
             print 'XRef was found.'
 
 
-    def feature2node(self):
-        if not isinstance(self.rec, SeqRecord.SeqRecord):
-            raise ValueError('rec must be Bio.SeqRecord.SeqRecord type.')
-
-        for i in xrange(self.rec.features):
-            if self.rec.features[i] == 'gene':
-                self.create_gene(self.rec, i)
-            method_name = 'self.create' + self.rec.features[i].lower() + '(rec, %d)' % (i)
-            try:
-                eval(method_name)
-            except:
-                print self.rec.features[i].type
-
-
-    def create_gene(self, i):
-        # Take info out of gene
+    def make_gene_and_product(self, i):
         gene = self.rec.features[i]
-        gene_dict = {'source': 'GenBank'}
+        # Take info out of gene
+        gene_dict = {'locus_tag':gene.qualifiers['locus_tag'][0]}
         try:
-            gene_name = gene.qualifiers['gene']
-            gene_dict['name'] = gene_name
-        except:
-            gene_name = gene.qualifiers['locus_tag']
-            gene_dict['name'] = gene_name
-
-        # If there is no product of gene: RNA or CDS
-        if not self.rec.features[i+1].type in ('RNA', 'CDS'):
-            try:
-                xrefs = gene.qualifiers['db_xref']
-            except:
-                xrefs = []
-            try:
-                gene_dict['product'] = gene.qualifiers['product']
-            except:
-                gene_dict['product'] = []
-            # raise UserWarning('gene without product.')
-
-        # Take info out if CDS/RNA
-        else:
-            if 'CDS' in self.rec.features[i+1].type:
-                gene_product = 'cds'
+            next_feature = self.rec.features[i+1]
+            if not next_feature.type in self.gene_product_list:
+                next_feature = self.rec.features[i]
             else:
-                gene_product = 'rna'
-            gene = self.rec.feaures[i+1]
-            gene_dict['locus_tag'] = gene.qualifiers['locus_tag']
-            gene_dict['product'] = gene.qualifiers['product']
-            try:
-                gene_dict['comment'] = gene.qualifiers['note']
-            except:
+                gene_dict['product'] = next_feature.qualifiers['product'][0]
                 pass
-            try:
-                xrefs = gene.qualifiers['db_xref']
-            except:
-                xrefs = []
-            try:
-                gene_name = gene.qualifiers['gene']
-                gene_dict['name'] = gene_name
-            except:
-                gene_name = gene.qualifiers['locus_tag']
-                gene_dict['name'] = gene_name
-        # Find the gene
-        gene_dict['start'] = int(gene.location.start) + 1
-        gene_dict['end'] = int(gene.location.end)
-        gene_dict['strand'] = num2strand(gene.location.strand)
+        except:
+            next_feature = self.rec.features[i]
+        gene_dict['start'] = int(next_feature.location.start) + 1
+        gene_dict['end'] = int(next_feature.location.end)
+        gene_dict['strand'] = num2strand(next_feature.location.strand)
+
+        # Setting the gene name
+        try:
+            gene_name = next_feature.qualifiers['gene'][0]
+        except:
+            gene_name = next_feature.qualifiers['locus_tag'][0]
+        gene_dict['name'] = gene_name
+
+        gene_node, check = self.create_or_update_gene(gene_dict)
+
+        # Creating XRef
+        try:
+            xrefs = gene.qualifiers['db_xref']
+            self.create_xref(xrefs=xrefs, feature=gene_node, check=check)
+        except:
+            pass
+
+        if next_feature.type == 'CDS':
+            self.create_or_update_cds(next_feature, gene_node)
+        elif next_feature.type in self.gene_product_list[1:-1]:
+            self.create_or_update_rna(next_feature, gene_node)
+        else:
+            pass
+
+
+    def create_or_update_gene(self, gene_dict):
+        # Searching the gene in the DB
         check_gene = self.search_gene_pattern(gene_dict['start'],
                                               gene_dict['end'],
                                               gene_dict['strand'])
         # If gene is not found
         if not check_gene:
-            # Create gene
-            gene_node, part_of_org, part_of_ccp =\
-                self.db_connection.data_base.create(
+
+            # Creating a new gene
+            gene_dict['source'] = 'GenBank'
+            gene_node, part_of_org, part_of_ccp = self.db_connection.data_base.create(
                     node(gene_dict),
                     rel(0, 'PART_OF', self.organism_list[0]),
                     rel(0, 'PART_OF', self.ccp_list[0]))
+
+            # Creating labels for a new gene node
             gene_node.add_labels('Gene', 'Feature', 'DNA', 'BioEntity')
-            self.create_xref(xrefs, gene_node)
-            try:
-                self.create_term(gene_name, gene_node)
-            except:
-                pass
+
+            # Creating term
+            self.create_term(gene_dict['name'], gene_node)
+
+            # Flag for create_xref method.
+            updated = False
         else:
-            # Update gene
-            gene = check_gene[0][0]
-            if not gene.get_properties()['name'] == gene_name:
-                self.create_term(gene_name, gene)
-            source = [gene.get_properties()['source']]
-            if not 'GenBank' in source:
-                source.append('GenBank')
-                gene.update_properties({'source': source})
-            self.create_or_update_xref(gene, xrefs)
-        invoke = 'self.create_or_update_%s(rec.features[%d], gene)' % (gene_product, i)
-        eval(invoke)
+            print 'Gene is found. Updating.'
 
-    def create_or_update_xref(self, gene, xrefs):
-        print 'To be implemented'
+            # Updating the gene
+            gene_node = check_gene[0][0]
+            gene_props = gene_node.get_properties()
 
-    def create_or_update_rna(self, feature, gene):
-        print 'To be implemented'
+            # Updating source
+            self.update_source(gene_node, gene_props)
 
-    def create_or_update_cds(self, feature, gene):
-        print 'To be implemented'
+            # Checking locus_tag
+            try:
+                gene_locus_tag = gene_props['locus_tag']
+                if gene_locus_tag != gene_dict['locus_tag']:
+                    print 'Locus_tag is different' # Log
+            except:
+                gene_node.update_properties({'locus_tag': gene_dict['locus_tag']})
+
+            # Checking product
+            try:
+                gene_product = gene_props['product']
+                if gene_product != gene_dict['product']:
+                    print 'Product is different' # Log
+            except:
+                try:
+                    gene_node.update_properties({'product': gene_dict['product']})
+                except:
+                    pass
+
+            # Flag for create_xref method.
+            updated = True
+
+            # Checking name of existing gene
+            if gene_props['name'] != gene_dict['name']:
+                self.create_term(gene_dict['name'], gene_node)
+        return gene_node, updated
+
+    def create_or_update_rna(self, feature, gene_node):
+        # Taking info for the RNA
+        try:
+            rna_dict = {'name':feature.qualifiers['product']}
+        except:
+            rna_dict = {'name':feature.qualifiers['locus_tag']}
+
+        try:
+            rna_dict['comment'] = feature.qualifiers['note']
+        except:
+            pass
+
+        # Searching for the RNA
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'START g=node(%s) ' \
+                'MATCH (g)-[:ENCODES]->(r:RNA) ' \
+                'RETURN r'
+        transaction.append(query)
+        check_rna = transaction.commit()[0]
+        if not check_rna:
+            rna_dict['source'] = 'GenBank'
+            # Creating a polypeptide node
+            rna_node, part_of_org, encodes = self.db_connection.data_base.create(
+                    node(rna_dict),
+                    rel(0, 'PART_OF', self.organism_list[0]),
+                    rel(gene_node, 'ENCODES', 0))
+
+            # Renaming ncRNA to sRNA
+            if feature.type == 'ncRNA':
+                feature.type = 'sRNA'
+
+            # Adding labels to the node
+            rna_node.add_labels(feature.type, 'RNA', 'BioEntity')
+
+            # Creating term
+            self.create_term(rna_dict['name'], rna_node)
+
+            # Flag for create_xref method.
+            updated = False
+        else:
+            # Updating the polypeptide node
+            rna_node = check_rna[0][0]
+            rna_props = rna_node.get_properties()
+
+            # Updating source
+            self.update_source(rna_node, rna_props)
+
+            # Checking name of existing gene
+            if rna_props['name'] != rna_dict['name']:
+                self.create_term(rna_dict['name'], rna_node)
+
+            # Flag for create_xref method.
+            updated = True
+
+        # Creating XRef
+        try:
+            xrefs = [db for db in feature.qualifiers['db_xref'] if db.split(':')[0] not in ['GeneID']]
+            self.create_xref(xrefs=xrefs, feature=rna_node, check=updated),
+        except:
+            pass
+
+    def create_or_update_cds(self, feature, gene_node):
+        # Taking info for the polypetide
+        poly_dict = {'name':feature.qualifiers['product']}
+        try:
+            seq = feature.qualifiers['translation']
+        except:
+            dna_seq = self.rec.seq[feature.location.nofuzzy_start:feature.location.nofuzzy_end]
+            seq = dna_seq.translate(feature.qualifiers['trans_table'])[:-1]
+        poly_dict['seq'] = seq
+        try:
+            poly_dict['comment'] = feature.qualifiers['note']
+        except:
+            pass
+
+        # Searching for the polypeptide
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'START g=node(%s) ' \
+                'MATCH (g)-[:ENCODES]->(p:Polypeptide) ' \
+                'WHERE p.seq=%s ' \
+                'RETURN p' % (node2link(gene_node), seq)
+        transaction.append(query)
+        check_poly = transaction.commit()[0]
+        if not check_poly:
+            poly_dict['source'] = 'GenBank'
+            # Creating a polypeptide node
+            poly_node, part_of_org, encodes = self.db_connection.data_base.create(
+                    node(poly_dict),
+                    rel(0, 'PART_OF', self.organism_list[0]),
+                    rel(gene_node, 'ENCODES', 0))
+
+            # Adding labels to the node
+            poly_node.add_labels('Polypeptide', 'Peptide', 'BioEntity')
+
+            # Creating term
+            self.create_term(poly_dict['name'], poly_node)
+
+            # Flag for create_xref method.
+            updated = False
+        else:
+            # Updating the polypeptide node
+            poly_node = check_poly[0][0]
+            poly_props = poly_node.get_properties()
+
+            # Updating source
+            self.update_source(poly_node, poly_props)
+
+            # Checking name of existing gene
+            if poly_props['name'] != poly_dict['name']:
+                self.create_term(poly_dict['name'], poly_node)
+
+            # Flag for create_xref method.
+            updated = True
+
+        # Creating XRef
+        try:
+            xrefs = [db for db in feature.qualifiers['db_xref'] if db.split(':')[0] not in ['GeneID']]
+            self.create_xref(xrefs=xrefs, feature=poly_node, check=updated),
+        except:
+            pass
+
+
+    def update_source(self, node, props):
+        source = props['source']
+        if not isinstance(source, list):
+            source = [source]
+        if not 'GenBank' in source:
+            source.append('GenBank')
+            node.update_properties({'source': source})
 
     def search_gene_pattern(self, start, end, strand):
         if not isinstance(start, int) or not isinstance(end, int):
             raise ValueError('start and end must be string.')
         if not isinstance(strand, str):
             raise ValueError('strand must be string.')
-        if not start in ["linear", "circular", "unknown"]:
-            raise ValueError('strand must be "linear", "circular" or "unknown".')
+        if not strand in ["forward", "reverse", "unknown"]:
+            raise ValueError('strand must be "forward", "reverse" or "unknown".')
 
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
         query = 'START org=node(%s), ccp=node(%s) ' \
-                'MATCH (org)<-[:PART_OF]-(ccp)<-[:PART_OF]-(g:Gene)-[:PART_OF]->(org) ' \
-                'WHERE g.start=%d, g.end=%d, g.strand=%d ' \
+                'MATCH (ccp)<-[:PART_OF]-(g:Gene)-[:PART_OF]->(org) ' \
+                'WHERE g.start=%d AND g.end=%d AND g.strand="%s" ' \
                 'RETURN g' \
                 % (self.organism_list[2], self.ccp_list[2], start, end, strand)
         transaction.append(query)
@@ -301,7 +438,7 @@ class GenBank():
 
     def create_term(self, name, bioentity):
         if not isinstance(name, str):
-            raise ValueError('id must be string.')
+            raise ValueError('name must be string.')
         if not isinstance(bioentity, neo4j.Node):
             raise ValueError('bioentity must be py2neo.neo4j.Node.')
 
@@ -310,28 +447,42 @@ class GenBank():
         term.add_labels('Term')
         # self.db_connection.data_base.create(rel(bioentity, 'EVIDENCE', xref))
 
-    def create_xref(self, refs, feature):
+    def create_xref(self, xrefs, feature, check=False):
         """
         Method creates XRef to a feature with relation EVIDENCE.
-        :param refs: list
+        :param xrefs: list
         :param feature: py2neo.neo4j.Node
         :return: None
         """
-        if not isinstance(refs, list):
+        if not isinstance(xrefs, list):
             raise ValueError('refs must be a list.')
         if not isinstance(feature, neo4j.Node):
             raise ValueError('feature must be py2neo.neo4j.Node.')
 
-        for ref in refs:
+        id_list = []
+        if check == True:
+            session = cypher.Session(self.db_connection.db_link)
+            transaction = session.create_transaction()
+            query = 'START feature=node(%s)' \
+                    ' MATCH (feature)-[:EVIDENCE]->(xref:XRef)-[:LINK_TO]->(db)' \
+                    ' RETURN xref.id, db.name, db' % node2link(feature)
+            transaction.append(query)
+            transaction_res = list(transaction.commit())[0]
+            for rec in transaction_res:
+                id_list.append(rec[0])
+                if not self.external_sources.has_key(rec[1]):
+                    self.external_sources[rec[1]] = rec[2]
+        for ref in xrefs:
             xref_key, xref_val = ref.split(':')
-            if not self.external_sources.has_key(xref_key):
-                new_source, = self.db_connection.data_base.create({'name': xref_key})
-                new_source.add_label('DB')
-                self.external_sources[xref_key] = new_source
-            xref, evidence = self.db_connection.data_base.create(node({'id': xref_val}),
-                                                                 rel(feature, 'EVIDENCE', 0),
-                                                                 rel(0, 'LINK_TO', self.external_sources[xref_key]))
-            xref.add_labels('XRef')
+            if not xref_val in id_list:
+                if not self.external_sources.has_key(xref_key):
+                    new_source, = self.db_connection.data_base.create({'name': xref_key})
+                    new_source.add_labels('DB')
+                    self.external_sources[xref_key] = new_source
+                xref, evidence, link_to = self.db_connection.data_base.create(node({'id': xref_val}),
+                                                                     rel(feature, 'EVIDENCE', 0),
+                                                                     rel(0, 'LINK_TO', self.external_sources[xref_key]))
+                xref.add_labels('XRef')
 
     def search_node(self, label, keys, values):
         if not isinstance(label, str):

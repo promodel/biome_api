@@ -31,7 +31,7 @@ class BioGraphConnection():
         self.data_base = neo4j.GraphDatabaseService(self.db_link)
 
 class GenBank():
-    non_gene_list = ['mobile_element', 'repeat_region', 'rep_origin']
+    non_gene_list = ['mobile_element', 'repeat_region', 'rep_origin', 'STS']
     gene_product_list = ['CDS', 'tRNA', 'rRNA', 'tmRNA', 'ncRNA', 'mRNA']
     def __init__(self, gb_file, db_connection):
         if not isinstance(gb_file, str):
@@ -71,7 +71,7 @@ class GenBank():
             if feature.type == 'gene':
                 self.make_gene_and_product(i)
             elif feature.type in self.non_gene_list or feature.type[:4] == 'misc':
-                pass
+                self.make_non_gene(feature)
             elif feature.type in self.gene_product_list:
                 pass
             else:
@@ -105,7 +105,6 @@ class GenBank():
             transaction_res = transaction_res[0]
             self.organism_list = [transaction_res[0], self.rec.annotations['organism'], node2link(transaction_res[0])]
             self.ccp_list = [transaction_res[1], self.rec.description, node2link(transaction_res[1])]
-            print 'Pattern was found.'
         else:
             # Create or find organism
             self.create_or_update_organism()
@@ -210,7 +209,7 @@ class GenBank():
         # Creating XRef
         try:
             xrefs = gene.qualifiers['db_xref']
-            self.create_xref(xrefs=xrefs, feature=gene_node, check=check)
+            self.create_xref(xrefs=xrefs, feature_node=gene_node, check=check)
         except:
             pass
 
@@ -229,7 +228,7 @@ class GenBank():
                                               gene_dict['strand'])
         # If gene is not found
         if not check_gene:
-
+            print 'Creating gene'
             # Creating a new gene
             gene_dict['source'] = 'GenBank'
             gene_node, part_of_org, part_of_ccp = self.db_connection.data_base.create(
@@ -290,7 +289,7 @@ class GenBank():
             rna_dict = {'name':feature.qualifiers['locus_tag']}
 
         try:
-            rna_dict['comment'] = feature.qualifiers['note']
+            rna_dict['comment'] = feature.qualifiers['note'][0]
         except:
             pass
 
@@ -304,7 +303,7 @@ class GenBank():
         check_rna = transaction.commit()[0]
         if not check_rna:
             rna_dict['source'] = 'GenBank'
-            # Creating a polypeptide node
+            # Creating a RNA node
             rna_node, part_of_org, encodes = self.db_connection.data_base.create(
                     node(rna_dict),
                     rel(0, 'PART_OF', self.organism_list[0]),
@@ -323,7 +322,7 @@ class GenBank():
             # Flag for create_xref method.
             updated = False
         else:
-            # Updating the polypeptide node
+            # Updating the RNA node
             rna_node = check_rna[0][0]
             rna_props = rna_node.get_properties()
 
@@ -340,13 +339,13 @@ class GenBank():
         # Creating XRef
         try:
             xrefs = [db for db in feature.qualifiers['db_xref'] if db.split(':')[0] not in ['GeneID']]
-            self.create_xref(xrefs=xrefs, feature=rna_node, check=updated),
+            self.create_xref(xrefs=xrefs, feature_node=rna_node, check=updated),
         except:
             pass
 
     def create_or_update_cds(self, feature, gene_node):
         # Taking info for the polypetide
-        poly_dict = {'name':feature.qualifiers['product']}
+        poly_dict = {'name':feature.qualifiers['product'][0]}
         try:
             seq = feature.qualifiers['translation']
         except:
@@ -354,7 +353,7 @@ class GenBank():
             seq = dna_seq.translate(feature.qualifiers['trans_table'])[:-1]
         poly_dict['seq'] = seq
         try:
-            poly_dict['comment'] = feature.qualifiers['note']
+            poly_dict['comment'] = feature.qualifiers['note'][0]
         except:
             pass
 
@@ -401,10 +400,58 @@ class GenBank():
         # Creating XRef
         try:
             xrefs = [db for db in feature.qualifiers['db_xref'] if db.split(':')[0] not in ['GeneID']]
-            self.create_xref(xrefs=xrefs, feature=poly_node, check=updated),
+            self.create_xref(xrefs=xrefs, feature_node=poly_node, check=updated),
         except:
             pass
 
+    def make_non_gene(self, feature):
+        feature_dict ={}
+        feature_dict['start'] = int(feature.location.start) + 1
+        feature_dict['end'] = int(feature.location.end)
+        feature_dict['strand'] = num2strand(feature.location.strand)
+        check_feature = self.search_non_gene_pattern(feature_dict['start'],
+                                              feature_dict['end'],
+                                              feature_dict['strand'])
+        try:
+            feature_dict['comment'] = feature.qualifiers['note'][0]
+        except:
+            pass
+        try:
+            feature_dict['type'] = feature.qualifiers['mobile_element_type']
+        except:
+            pass
+        if not check_feature:
+            feature_dict['source'] = 'GenBank'
+            # Creating a feature node
+            feature_node, part_of_org = self.db_connection.data_base.create(
+                    node(feature_dict),
+                    rel(0, 'PART_OF', self.ccp_list[0]))
+            if feature.type in self.non_gene_list[:-1]:
+                feature.type = feature.type.capitalize()
+            feature_node.add_labels(feature.type, 'Feature', 'DNA')
+
+            # Flag for create_xref method.
+            updated = False
+        else:
+            # Updating the feature
+            feature_node = check_feature[0][0]
+            feature_props = feature_node.get_properties()
+
+            # Updating source
+            self.update_source(feature_node, feature_props)
+
+            # Flag for create_xref method.
+            updated = True
+
+            # Checking comment of the existing feature.
+            if feature_dict.has_key('comment'):
+                feature_node.update_properties({'comment': feature_dict['comment']})
+        # Creating xrefs
+        try:
+            xrefs = feature.qualifiers['db_xref']
+            self.create_xref(xrefs=xrefs, feature_node=feature_node, check=updated),
+        except:
+            pass
 
     def update_source(self, node, props):
         source = props['source']
@@ -436,6 +483,28 @@ class GenBank():
         except:
             print 'Transaction failed.'
 
+    def search_non_gene_pattern(self, start, end, strand):
+        if not isinstance(start, int) or not isinstance(end, int):
+            raise ValueError('start and end must be string.')
+        if not isinstance(strand, str):
+            raise ValueError('strand must be string.')
+        if not strand in ["forward", "reverse", "unknown"]:
+            raise ValueError('strand must be "forward", "reverse" or "unknown".')
+
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'START ccp=node(%s) ' \
+                'MATCH (ccp)<-[:PART_OF]-(ng) ' \
+                'WHERE ng.start=%d AND ng.end=%d AND ng.strand="%s" ' \
+                'RETURN ng' \
+                % (self.organism_list[2], start, end, strand)
+        transaction.append(query)
+        try:
+            transaction_res = list(transaction.commit())[0]
+            return transaction_res
+        except:
+            print 'Transaction failed.'
+
     def create_term(self, name, bioentity):
         if not isinstance(name, str):
             raise ValueError('name must be string.')
@@ -447,16 +516,16 @@ class GenBank():
         term.add_labels('Term')
         # self.db_connection.data_base.create(rel(bioentity, 'EVIDENCE', xref))
 
-    def create_xref(self, xrefs, feature, check=False):
+    def create_xref(self, xrefs, feature_node, check=False):
         """
         Method creates XRef to a feature with relation EVIDENCE.
         :param xrefs: list
-        :param feature: py2neo.neo4j.Node
+        :param feature_node: py2neo.neo4j.Node
         :return: None
         """
         if not isinstance(xrefs, list):
             raise ValueError('refs must be a list.')
-        if not isinstance(feature, neo4j.Node):
+        if not isinstance(feature_node, neo4j.Node):
             raise ValueError('feature must be py2neo.neo4j.Node.')
 
         id_list = []
@@ -465,7 +534,7 @@ class GenBank():
             transaction = session.create_transaction()
             query = 'START feature=node(%s)' \
                     ' MATCH (feature)-[:EVIDENCE]->(xref:XRef)-[:LINK_TO]->(db)' \
-                    ' RETURN xref.id, db.name, db' % node2link(feature)
+                    ' RETURN xref.id, db.name, db' % node2link(feature_node)
             transaction.append(query)
             transaction_res = list(transaction.commit())[0]
             for rec in transaction_res:
@@ -480,7 +549,7 @@ class GenBank():
                     new_source.add_labels('DB')
                     self.external_sources[xref_key] = new_source
                 xref, evidence, link_to = self.db_connection.data_base.create(node({'id': xref_val}),
-                                                                     rel(feature, 'EVIDENCE', 0),
+                                                                     rel(feature_node, 'EVIDENCE', 0),
                                                                      rel(0, 'LINK_TO', self.external_sources[xref_key]))
                 xref.add_labels('XRef')
 
@@ -509,5 +578,5 @@ class GenBank():
         except:
             raise UserWarning('Transaction failed.')
 
-import doctest
-doctest.testfile('test_genbank.txt')
+# import doctest
+# doctest.testfile('test_genbank.txt')

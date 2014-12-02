@@ -1380,6 +1380,7 @@ class MetaCyc():
                     continue
                 # skipping RNAs without Gene
                 if not hasattr(obj, "GENE"):
+                    notfound += 1
                     continue
 
                 # picking gene that encodes the rna

@@ -1378,8 +1378,9 @@ class MetaCyc():
                     continue
                 if obj.TYPES[:6] == 'Charge':
                     continue
-                # skipping RNAs withoy
-
+                # skipping RNAs without Gene
+                if not hasattr(obj, "GENE"):
+                    continue                
 
                 # picking gene that encodes the rna
                 gene = [g for g in self.genes

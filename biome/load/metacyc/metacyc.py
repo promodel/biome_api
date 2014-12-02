@@ -440,7 +440,10 @@ class _DatObject():
         The method returns formatted location of protein sequence features.
         """
         res = None
-        if hasattr(self, "LEFT_END_POSITION"):
+        if hasattr(self, "LEFT_END_POSITION") and \
+                hasattr(self, "LEFT_END_POSITION") and \
+                isinstance(self.LEFT_END_POSITION, int) and \
+                isinstance(self.RIGHT_END_POSITION, int):
             res = '%d:%d' % (self.LEFT_END_POSITION, self.RIGHT_END_POSITION)
         elif hasattr(self, "RESIDUE_NUMBER"):
             res = self.RESIDUE_NUMBER

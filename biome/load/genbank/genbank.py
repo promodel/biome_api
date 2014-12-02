@@ -284,9 +284,9 @@ class GenBank():
     def create_or_update_rna(self, feature, gene_node):
         # Taking info for the RNA
         try:
-            rna_dict = {'name':feature.qualifiers['product']}
+            rna_dict = {'name':feature.qualifiers['product'][0]}
         except:
-            rna_dict = {'name':feature.qualifiers['locus_tag']}
+            rna_dict = {'name':feature.qualifiers['locus_tag'][0]}
 
         try:
             rna_dict['comment'] = feature.qualifiers['note'][0]
@@ -347,10 +347,10 @@ class GenBank():
         # Taking info for the polypetide
         poly_dict = {'name':feature.qualifiers['product'][0]}
         try:
-            seq = feature.qualifiers['translation']
+            seq = feature.qualifiers['translation'][0]
         except:
             dna_seq = self.rec.seq[feature.location.nofuzzy_start:feature.location.nofuzzy_end]
-            seq = dna_seq.translate(feature.qualifiers['trans_table'])[:-1]
+            seq = dna_seq.translate(feature.qualifiers['trans_table'][0])[:-1]
         poly_dict['seq'] = seq
         try:
             poly_dict['comment'] = feature.qualifiers['note'][0]

@@ -1518,7 +1518,8 @@ class MetaCyc():
                 obj = datfile.data[uid]
 
                 # checking if binding site location is specified in an entry
-                if not hasattr(obj, "ABS_CENTER_POS"):
+                if hasattr(obj, 'UNMAPPED-COMPONENT-OF') or \
+                        not hasattr(obj, "ABS_CENTER_POS"):
                     unmapped += 1
                     continue
 

@@ -1251,6 +1251,11 @@ class MetaCyc():
                 # each _DatObject so it's important to use attr_check method
                 for uid in datfile.names:
                     obj = datfile.data[uid]
+
+                    # skipping unmapped genes
+                    if hasattr(obj, 'UNMAPPED_COMPONENT_OF'):
+                        continue
+
                     location = self._location(
                             obj.attr_check("LEFT_END_POSITION"), 
                             obj.attr_check("RIGHT_END_POSITION"),

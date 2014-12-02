@@ -1744,28 +1744,32 @@ class MetaCyc():
                         goterm = goterm.replace('|', '')
                         xref = XRef(goterm)
                         self.xrefs.append(xref)
-                        self.edges.append(CreateEdge(peptide, xref, 'EVIDENCE'))
+                        self.edges.append(
+                            CreateEdge(peptide, xref, 'EVIDENCE'))
                         db_obj = self.db_checker("GO")
-                        self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
+                        self.edges.append(
+                            CreateEdge(xref, db_obj, 'LINK_TO'))
 
                 # creating edge to gene encoding the peptide
                 obj.links_to_gene(peptide, self)
 
                 if hasattr(obj, 'MODIFIED_FORM'):
-                    uid = obj.MODIFIED_FORM
-                    mod_obj = datfile.data[uid]
-                    modification = Unspecified(
-                        name=mod_obj.attr_check("COMMON_NAME", uid), uid=uid)
-                    self.other_nodes.append(modification)
-                    self.name_to_terms(modification)
+                    modified_form = obj.MODIFIED_FORM.split('; ')
+                    for uid in modified_form:
+                        mod_obj = datfile.data[uid]
+                        modification = Unspecified(
+                            name=mod_obj.attr_check("COMMON_NAME", uid),
+                            uid=uid)
+                        self.other_nodes.append(modification)
+                        self.name_to_terms(modification)
 
-                    # creating edges (Peptide) -[:FORMS]-> (Unspecified)
-                    self.edges.append(
-                        CreateEdge(peptide, modification, 'FORMS'))
+                        # creating edges (Peptide) -[:FORMS]-> (Unspecified)
+                        self.edges.append(
+                            CreateEdge(peptide, modification, 'FORMS'))
 
-                    # creating an edge to the Organism node
-                    # (Unspecified) -[:PART_OF]-> (Organism)
-                    obj.links_to_organism(modification, self)
+                        # creating an edge to the Organism node
+                        # (Unspecified) -[:PART_OF]-> (Organism)
+                        obj.links_to_organism(modification, self)
 
             for uid in complexes:
                 obj = datfile.data[uid]

@@ -459,7 +459,7 @@ class GenBank():
             source = [source]
         if not 'GenBank' in source:
             source.append('GenBank')
-            node.update_properties({'source': source})
+            node.update_properties({'source': sorted(source)})
 
     def search_gene_pattern(self, start, end, strand):
         if not isinstance(start, int) or not isinstance(end, int):

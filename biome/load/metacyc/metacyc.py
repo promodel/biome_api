@@ -1378,6 +1378,8 @@ class MetaCyc():
                     continue
                 if obj.TYPES[:6] == 'Charge':
                     continue
+                # skipping RNAs withoy
+
 
                 # picking gene that encodes the rna
                 gene = [g for g in self.genes

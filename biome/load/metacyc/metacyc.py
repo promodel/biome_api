@@ -1380,7 +1380,7 @@ class MetaCyc():
                     continue
                 # skipping RNAs without Gene
                 if not hasattr(obj, "GENE"):
-                    continue                
+                    continue
 
                 # picking gene that encodes the rna
                 gene = [g for g in self.genes
@@ -1423,19 +1423,23 @@ class MetaCyc():
                 # creating a node for rna modification (if it exists)
                 # (RNA) -[:FORMS]-> (Unspecified)
                 if hasattr(obj, "MODIFIED_FORM"):
-                    uid = obj.MODIFIED_FORM.replace("|", "")
-                    mod_obj = datfile.data[uid]
-                    modification = Unspecified(
-                        name=mod_obj.attr_check("COMMON_NAME", uid), uid=uid)
-                    self.other_nodes.append(modification)
-                    self.name_to_terms(modification)
+                    modified_rnas = obj.MODIFIED_FORM.split('; ')
+                    for modified_rna in modified_rnas:
+                        uid = modified_rna.replace("|", "")
+                        mod_obj = datfile.data[uid]
+                        modification = Unspecified(
+                            name=mod_obj.attr_check("COMMON_NAME", uid),
+                            uid=uid)
+                        self.other_nodes.append(modification)
+                        self.name_to_terms(modification)
 
-                    # creating edges
-                    self.edges.append(CreateEdge(rna, modification, 'FORMS'))
+                        # creating edges
+                        self.edges.append(
+                            CreateEdge(rna, modification, 'FORMS'))
 
-                    # creating an edge to the Organism node
-                    # (Unspecified) -[:PART_OF]-> (Organism)
-                    obj.links_to_organism(modification, self)
+                        # creating an edge to the Organism node
+                        # (Unspecified) -[:PART_OF]-> (Organism)
+                        obj.links_to_organism(modification, self)
 
             print "A list with %d RNAs has been created!" % len(self.rnas)
             print "No genes in the database for %d RNAs." % notfound

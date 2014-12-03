@@ -67,7 +67,7 @@ class _DatSet():
             chunks = {}
             chunk = _DatObject(db_format)
 
-            for line in data:
+            for i, line in enumerate(data):
                 if line[:len(dict_keys)] == dict_keys:
                     uid = line.replace("\n", '').split(sep)[1]
                     self.names.append(uid)
@@ -126,6 +126,8 @@ class _DatSet():
                 warnings.warn("There are no data in the"
                               " %s file!\n" % self.filename)
         except:
+            print chunk.__dict__
+            print chunks
             raise Exception()
 
 ###############################################################################

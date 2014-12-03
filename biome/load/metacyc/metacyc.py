@@ -1687,10 +1687,17 @@ class MetaCyc():
             # There are 2 types of peptides: oligopeptides, polypeptides
             oligo = ['OLIGOPEPTIDES', 'Cycic-Dipeptides',
                      'Dipeptides-Of-D-Amino-Acids', 'DIPEPTIDES',
-                     'Tetrapeptides', 'TRIPEPTIDES']
+                     'Tetrapeptides', 'TRIPEPTIDES', 'Leader-Peptides',
+                     'Dipeptides-With-Met-Amino']
             poly = ['Polypeptides', 'apo-ACP', 'Reduced-2Fe-2S-Ferredoxins',
-                    'SpoIVB-peptidase-precursors', 'All-ACPs']
+                    'SpoIVB-peptidase-precursors', 'All-ACPs', 'Hemoproteins',
+                    'Radical-AdoMet-Enzymes', 'apo-ACP', 'ACYL-ACP',
+                    'Ribonucleoside-triphosphate-reductases',
+                    'Oxidized-flavodoxins', 'Reduced-ferrodoxins',
+                    'ThiS-CoASH-proteins', 'Non-ribosomal-peptide-synthetases',
+                    ]
             complexes = []
+            unknown = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
 
@@ -1701,7 +1708,9 @@ class MetaCyc():
 
                 # we also skip complexes, just to be sure that later all
                 # elements for them will exist
-                if uid[:4] == 'CPLX':
+                if uid[:4] == 'CPLX' or \
+                        (hasattr(obj, 'TYPES') and
+                                 'Protein-Complexes' in obj.TYPES):
                     complexes.append(uid)
                     continue
 
@@ -1721,9 +1730,14 @@ class MetaCyc():
                                            molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.oligopeptides.append(peptide)
                 else:
-                    warnings.warn("Unexpected peptide types! "
-                                  "Let's skip it... \nThe object uid %s" % uid)
-                    continue
+                    #warnings.warn("Unexpected peptide types! "
+                    #              "Let's skip it... \nThe object uid %s" % uid)
+                    peptide = Unspecified(uid=uid,
+                                          name=obj.attr_check("COMMON_NAME", uid),
+                                          molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                    peptide.labels = '%s:To_check' %peptide.labels
+                    self.other_nodes.append(peptide)
+                    unknown +=1
 
                 #  creating a Term for the Compound name
                 # (Peptide) -[:HAS_NAME]-> (Term)
@@ -1855,8 +1869,9 @@ class MetaCyc():
             print "A list with %d oligopeptides has been created!\n" \
                     "A list with %d polypeptides has been created!\n" \
                     "A list with %d protein-complexes has been " \
-                    "created!" % (len(self.oligopeptides),
-                                  len(self.polypeptides), len(self.complexes))
+                    "created!\n" \
+                    "There were %d unknown peptide types!" % (len(self.oligopeptides),
+                                  len(self.polypeptides), len(self.complexes), unknown)
 
     def protein_features_dat(self):
         """

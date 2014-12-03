@@ -1939,6 +1939,11 @@ class MetaCyc():
             i = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
+
+                # skipping entries without structure specified
+                if not hasattr(obj, 'ENZYME'):
+                    continue
+
                 enzyme = Enzyme(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid))
                 self.proteins.append(enzyme)

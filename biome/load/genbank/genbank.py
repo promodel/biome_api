@@ -230,7 +230,7 @@ class GenBank():
         if not check_gene:
             print 'Creating gene'
             # Creating a new gene
-            gene_dict['source'] = 'GenBank'
+            gene_dict['source'] = ['GenBank']
             gene_node, part_of_org, part_of_ccp = self.db_connection.data_base.create(
                     node(gene_dict),
                     rel(0, 'PART_OF', self.organism_list[0]),
@@ -298,11 +298,11 @@ class GenBank():
         transaction = session.create_transaction()
         query = 'START g=node(%s) ' \
                 'MATCH (g)-[:ENCODES]->(r:RNA) ' \
-                'RETURN r'
+                'RETURN r' % node2link(gene_node)
         transaction.append(query)
         check_rna = transaction.commit()[0]
         if not check_rna:
-            rna_dict['source'] = 'GenBank'
+            rna_dict['source'] = ['GenBank']
             # Creating a RNA node
             rna_node, part_of_org, encodes = self.db_connection.data_base.create(
                     node(rna_dict),
@@ -362,12 +362,12 @@ class GenBank():
         transaction = session.create_transaction()
         query = 'START g=node(%s) ' \
                 'MATCH (g)-[:ENCODES]->(p:Polypeptide) ' \
-                'WHERE p.seq=%s ' \
+                'WHERE p.seq="%s" ' \
                 'RETURN p' % (node2link(gene_node), seq)
         transaction.append(query)
         check_poly = transaction.commit()[0]
         if not check_poly:
-            poly_dict['source'] = 'GenBank'
+            poly_dict['source'] = ['GenBank']
             # Creating a polypeptide node
             poly_node, part_of_org, encodes = self.db_connection.data_base.create(
                     node(poly_dict),
@@ -421,7 +421,7 @@ class GenBank():
         except:
             pass
         if not check_feature:
-            feature_dict['source'] = 'GenBank'
+            feature_dict['source'] = ['GenBank']
             # Creating a feature node
             feature_node, part_of_org = self.db_connection.data_base.create(
                     node(feature_dict),

@@ -2248,6 +2248,11 @@ class MetaCyc():
                 if line[0] == '#' or line[:3] == "UNI":
                     continue
                 chunks = line.replace('\n', '').split('\t')
+
+                # skipping empty elements
+                if chunks[0] == '':
+                    continue
+
                 transporter = Transporter(name=chunks[1], reaction=chunks[2])
                 self.proteins.append(transporter)
 
@@ -2266,7 +2271,8 @@ class MetaCyc():
 
                 # creating an edge to the Organism node
                 # (Transporter) -[:PART_OF]-> (Organism)
-                obj.links_to_organism(transporter, self)
+                self.edges.append(
+                            CreateEdge(transporter, self.organism, 'PART_OF'))
 
             transnum = len([p for p in self.proteins
                             if isinstance(p, Transporter)])

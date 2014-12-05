@@ -8,6 +8,10 @@ import logging
 import os
 
 
+def parse2read(gb_file):
+    multi_file = SeqIO.parse(gb_file, 'genbank')
+    return [rec for rec in multi_file]
+
 def node2link(gb_node):
     return str(gb_node).split(' ')[0].split('(')[1]
 
@@ -152,7 +156,8 @@ class GenBank():
             ccp_label = 'Plasmid'
         else:
             self._logger.error('Unknown genome element')
-            raise UserWarning('Unknown genome element')
+            warnings.warn('Unknown genome element')
+            ccp_label = 'Contig'
         ccp_length = len(self.rec)
         ccp_name = description
         self._logger.info('Searching for %s with name %s.' % (ccp_label, ccp_name))
@@ -240,7 +245,10 @@ class GenBank():
             self._logger.info('Gene has no xrefs.')
 
         if next_feature.type == 'CDS':
-            self.create_or_update_cds(next_feature, gene_node)
+            try:
+                self.create_or_update_cds(next_feature, gene_node)
+            except ValueError:
+                pass
         elif next_feature.type in self.gene_product_list[1:-1]:
             self.create_or_update_rna(next_feature, gene_node)
         else:
@@ -395,8 +403,12 @@ class GenBank():
             self._logger.info('CDS has translation in source.')
         except:
             dna_seq = self.rec.seq[feature.location.nofuzzy_start:feature.location.nofuzzy_end]
-            seq = dna_seq.translate(feature.qualifiers['trans_table'][0])[:-1]
-            self._logger.info('CDS has no translation in source. Translated manually.')
+            try:
+                seq = dna_seq.translate(feature.qualifiers['trans_table'][0])[:-1]
+                self._logger.info('CDS has no translation in source. Translated manually.')
+            except:
+                self._logger.info('Gene was not translated. start: %d, end: %d, seq: %s' % (feature.location.nofuzzy_start, feature.location.nofuzzy_end, dna_seq))
+                raise ValueError
         poly_dict['seq'] = seq
         try:
             poly_dict['comment'] = feature.qualifiers['note'][0]
@@ -577,10 +589,37 @@ class GenBank():
         if not isinstance(bioentity, neo4j.Node):
             raise ValueError('bioentity must be py2neo.neo4j.Node.')
 
-        term, has_name = self.db_connection.data_base.create(node({'text': name}),
-                                                             rel(bioentity, 'HAS_NAME', 0))
-        term.add_labels('Term')
-        self._logger.info('Term was created.')
+        # Searching term
+        self._logger.info('Searching term pattern:')
+        check_term = list(self.db_connection.data_base.find('Term', 'text', name))
+        if not check_term:
+            term, has_name = self.db_connection.data_base.create(node({'text': name}),
+                                                                 rel(bioentity, 'HAS_NAME', 0))
+            term.add_labels('Term')
+            self._logger.info('Term and "HAS_NAME" relation were created.')
+        else:
+            if len(check_term) == 1:
+                session = cypher.Session(self.db_connection.db_link)
+                transaction = session.create_transaction()
+                query = 'START entity=node(%s), term=node(%s) ' \
+                        'MATCH (entity)-[r:HAS_NAME]->(term) ' \
+                        'RETURN r' \
+                        % (node2link(check_term[0]), node2link(bioentity))
+                self._logger.info(query)
+                transaction.append(query)
+                transaction_res = list(transaction.commit())[0]
+                if not transaction_res:
+                    has_name, = self.db_connection.data_base.create(rel(bioentity, 'HAS_NAME', check_term[0]))
+                    self._logger.info('Term was found and "HAS_NAME" relation was created.')
+                else:
+                    if len(transaction_res[0]) == 1:
+                        pass
+                    else:
+                        self._logger.info('There is a duplicate "HAS_NAME" relation with Term: %s' % name)
+            else:
+                has_name, = self.db_connection.data_base.create(rel(bioentity, 'HAS_NAME', check_term[0]))
+                self._logger.info('There is a duplicate Term: %s' % name)
+
         # self.db_connection.data_base.create(rel(bioentity, 'EVIDENCE', xref))
 
     def create_xref(self, xrefs, feature_node, check=False):

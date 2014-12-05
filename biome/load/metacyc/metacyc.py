@@ -401,7 +401,7 @@ class _DatObject():
             else:
                 warnings.warn("Location for a %s with unique id %s is "
                               "different in gene.dat and gene.col"
-                              " files!" % (node.__class__.__name__, node.uid))
+                              " files! \n" % (node.__class__.__name__, node.uid))
         else:
             raise TypeError("The node argument must be of the Feature class "
                             "or derived classes!")
@@ -418,7 +418,7 @@ class _DatObject():
             else:
                 warnings.warn("Names for a %s with unique id %s are different "
                               "in gene.dat and gene.col "
-                              "files!" % (node.__class__.__name__, node.uid))
+                              "files! \n" % (node.__class__.__name__, node.uid))
         else:
             raise TypeError("The node argument must be of a BioEntity class or "
                             "a derived classes!")
@@ -2048,7 +2048,7 @@ class MetaCyc():
                 else:
                     warnings.warn("Unexpected regulation types! "
                                   "Let's skip it... \n"
-                                  "The object uid %s" % uid)
+                                  "The object uid %s \n" % uid)
                     continue
                 self.regulation_events.append(reg)
 

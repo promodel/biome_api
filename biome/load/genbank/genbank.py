@@ -38,15 +38,17 @@ class GenBank():
             raise TypeError('db_connection must be an instance of the class BioGraphConnection.')
         if not os.path.isfile(gb_file):
             raise ValueError('There is no %s in current directory.' % gb_file)
-
+        logging.basicConfig(filename = 'BiomeDB.log', level = logger_level,
+                            format = '%(asctime)s %(message)s - %(module)s.%(funcName)s',
+                            datefmt='%H:%M:%S-%d.%m.%y')
+        self._logger = logging.getLogger(__name__)
+        self._logger.info('GenBank object was created.')
         self.gb_file = gb_file
         self.rec, self.seq_type = self._read_gb_file()
         self.db_connection = db_connection
         self.organism_list = [None, None, None]
         self.ccp_list = [None, None, None]
         self.external_sources = self.get_external_db()
-        self._logger = logging.getLogger(__name__)
-        self._logger.info('GenBank object was created.')
 
     def get_external_db(self):
         db_dict = {}

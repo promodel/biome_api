@@ -120,11 +120,11 @@ class Feature(Node):
             raise TypeError('The strand argument must be a string!')
         if start < 0 or end < 0:
             warnings.warn("Check start and end positions! One of them "
-                          "(or both) has a negative value!")
+                          "(or both) has a negative value!\n")
         if start > 0 and end > 0 and start > end:
             warnings.warn("Check start and end positions! The end "
                           "coordinate is smaller than the start "
-                          "coordinate!")
+                          "coordinate!\n")
         Node.__init__(self)
         self.start = start
         self.end = end

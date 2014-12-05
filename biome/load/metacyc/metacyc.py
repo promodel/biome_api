@@ -1690,18 +1690,19 @@ class MetaCyc():
             oligo = ['OLIGOPEPTIDES', 'Cycic-Dipeptides',
                      'Dipeptides-Of-D-Amino-Acids', 'DIPEPTIDES',
                      'Tetrapeptides', 'TRIPEPTIDES', 'Leader-Peptides',
-                     'Dipeptides-With-Met-Amino']
+                     'Dipeptides-With-Met-Amino',
+                     'Non-ribosomal-peptide-synthetases']
             poly = ['Polypeptides', 'apo-ACP', 'Reduced-2Fe-2S-Ferredoxins',
                     'SpoIVB-peptidase-precursors', 'All-ACPs', 'Hemoproteins',
-                    'Radical-AdoMet-Enzymes', 'apo-ACP', 'ACYL-ACP',
+                    'Radical-AdoMet-Enzymes', 'ACYL-ACP',
                     'Ribonucleoside-triphosphate-reductases',
                     'Oxidized-flavodoxins', 'Reduced-ferrodoxins',
-                    'ThiS-CoASH-proteins', 'Non-ribosomal-peptide-synthetases',
-                    ]
+                    'ThiS-CoASH-proteins']
             complexes = []
             unknown = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
+                types = obj.TYPES.split('; ')
 
                 # we skip all modified forms, as unmodified peptides entries
                 # have information about them
@@ -1711,12 +1712,9 @@ class MetaCyc():
                 # we also skip complexes, just to be sure that later all
                 # elements for them will exist
                 if uid[:4] == 'CPLX' or \
-                        (hasattr(obj, 'TYPES') and
-                                 'Protein-Complexes' in obj.TYPES):
+                                 'Protein-Complexes' in types:
                     complexes.append(uid)
                     continue
-
-                types = obj.TYPES.split('; ')
 
                 # Polypeptides
                 if len(set(types + poly)) != len(poly) + len(types):
@@ -2274,7 +2272,7 @@ class MetaCyc():
                             if isinstance(p, Transporter)])
             print "%d protein-transporters have been created!" % transnum
         except:
-            print "There is no pathways.col file! Let's skip it..."
+            print "There is no transporters.col file! Let's skip it..."
 
     def summary(self, filename="summary.txt"):
         """

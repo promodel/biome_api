@@ -1704,7 +1704,8 @@ class MetaCyc():
 
                 # we skip all modified forms, as unmodified peptides entries
                 # have information about them
-                if hasattr(obj, 'UNMODIFIED_FORM'):
+                if hasattr(obj, 'UNMODIFIED_FORM') or \
+                        'Modified-Proteins' in types:
                     continue
 
                 # we also skip complexes, just to be sure that later all
@@ -1731,8 +1732,9 @@ class MetaCyc():
                     #warnings.warn("Unexpected peptide types! "
                     #              "Let's skip it... \nThe object uid %s" % uid)
                     peptide = Unspecified(uid=uid,
-                                          name=obj.attr_check("COMMON_NAME", uid),
-                                          molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                                          name=obj.attr_check("COMMON_NAME", uid))
+                    setattr(peptide, 'molecular_weight_kd',
+                            obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     peptide.labels = '%s:To_check' %peptide.labels
                     self.other_nodes.append(peptide)
                     unknown +=1

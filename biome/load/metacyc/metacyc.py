@@ -126,8 +126,6 @@ class _DatSet():
                 warnings.warn("There are no data in the"
                               " %s file!\n" % self.filename)
         except:
-            print chunk.__dict__
-            print chunks
             raise Exception()
 
 ###############################################################################

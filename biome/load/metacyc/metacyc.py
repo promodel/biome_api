@@ -67,7 +67,7 @@ class _DatSet():
             chunks = {}
             chunk = _DatObject(db_format)
 
-            for line in data:
+            for i, line in enumerate(data):
                 if line[:len(dict_keys)] == dict_keys:
                     uid = line.replace("\n", '').split(sep)[1]
                     self.names.append(uid)
@@ -399,7 +399,7 @@ class _DatObject():
             else:
                 warnings.warn("Location for a %s with unique id %s is "
                               "different in gene.dat and gene.col"
-                              " files!" % (node.__class__.__name__, node.uid))
+                              " files! \n" % (node.__class__.__name__, node.uid))
         else:
             raise TypeError("The node argument must be of the Feature class "
                             "or derived classes!")
@@ -416,7 +416,7 @@ class _DatObject():
             else:
                 warnings.warn("Names for a %s with unique id %s are different "
                               "in gene.dat and gene.col "
-                              "files!" % (node.__class__.__name__, node.uid))
+                              "files! \n" % (node.__class__.__name__, node.uid))
         else:
             raise TypeError("The node argument must be of a BioEntity class or "
                             "a derived classes!")
@@ -440,7 +440,10 @@ class _DatObject():
         The method returns formatted location of protein sequence features.
         """
         res = None
-        if hasattr(self, "LEFT_END_POSITION"):
+        if hasattr(self, "LEFT_END_POSITION") and \
+                hasattr(self, "LEFT_END_POSITION") and \
+                isinstance(self.LEFT_END_POSITION, int) and \
+                isinstance(self.RIGHT_END_POSITION, int):
             res = '%d:%d' % (self.LEFT_END_POSITION, self.RIGHT_END_POSITION)
         elif hasattr(self, "RESIDUE_NUMBER"):
             res = self.RESIDUE_NUMBER
@@ -1378,8 +1381,10 @@ class MetaCyc():
                     continue
                 if obj.TYPES[:6] == 'Charge':
                     continue
-                # skipping RNAs withoy
-
+                # skipping RNAs without Gene
+                if not hasattr(obj, "GENE"):
+                    notfound += 1
+                    continue
 
                 # picking gene that encodes the rna
                 gene = [g for g in self.genes
@@ -1422,19 +1427,23 @@ class MetaCyc():
                 # creating a node for rna modification (if it exists)
                 # (RNA) -[:FORMS]-> (Unspecified)
                 if hasattr(obj, "MODIFIED_FORM"):
-                    uid = obj.MODIFIED_FORM.replace("|", "")
-                    mod_obj = datfile.data[uid]
-                    modification = Unspecified(
-                        name=mod_obj.attr_check("COMMON_NAME", uid), uid=uid)
-                    self.other_nodes.append(modification)
-                    self.name_to_terms(modification)
+                    modified_rnas = obj.MODIFIED_FORM.split('; ')
+                    for modified_rna in modified_rnas:
+                        uid = modified_rna.replace("|", "")
+                        mod_obj = datfile.data[uid]
+                        modification = Unspecified(
+                            name=mod_obj.attr_check("COMMON_NAME", uid),
+                            uid=uid)
+                        self.other_nodes.append(modification)
+                        self.name_to_terms(modification)
 
-                    # creating edges
-                    self.edges.append(CreateEdge(rna, modification, 'FORMS'))
+                        # creating edges
+                        self.edges.append(
+                            CreateEdge(rna, modification, 'FORMS'))
 
-                    # creating an edge to the Organism node
-                    # (Unspecified) -[:PART_OF]-> (Organism)
-                    obj.links_to_organism(modification, self)
+                        # creating an edge to the Organism node
+                        # (Unspecified) -[:PART_OF]-> (Organism)
+                        obj.links_to_organism(modification, self)
 
             print "A list with %d RNAs has been created!" % len(self.rnas)
             print "No genes in the database for %d RNAs." % notfound
@@ -1512,7 +1521,8 @@ class MetaCyc():
                 obj = datfile.data[uid]
 
                 # checking if binding site location is specified in an entry
-                if not hasattr(obj, "ABS_CENTER_POS"):
+                if hasattr(obj, 'UNMAPPED_COMPONENT_OF') or \
+                        not hasattr(obj, "ABS_CENTER_POS"):
                     unmapped += 1
                     continue
 
@@ -1677,25 +1687,33 @@ class MetaCyc():
             # There are 2 types of peptides: oligopeptides, polypeptides
             oligo = ['OLIGOPEPTIDES', 'Cycic-Dipeptides',
                      'Dipeptides-Of-D-Amino-Acids', 'DIPEPTIDES',
-                     'Tetrapeptides', 'TRIPEPTIDES']
+                     'Tetrapeptides', 'TRIPEPTIDES', 'Leader-Peptides',
+                     'Dipeptides-With-Met-Amino',
+                     'Non-ribosomal-peptide-synthetases']
             poly = ['Polypeptides', 'apo-ACP', 'Reduced-2Fe-2S-Ferredoxins',
-                    'SpoIVB-peptidase-precursors', 'All-ACPs']
+                    'SpoIVB-peptidase-precursors', 'All-ACPs', 'Hemoproteins',
+                    'Radical-AdoMet-Enzymes', 'ACYL-ACP',
+                    'Ribonucleoside-triphosphate-reductases',
+                    'Oxidized-flavodoxins', 'Reduced-ferrodoxins',
+                    'ThiS-CoASH-proteins']
             complexes = []
+            unknown = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
+                types = obj.TYPES.split('; ')
 
                 # we skip all modified forms, as unmodified peptides entries
                 # have information about them
-                if hasattr(obj, 'UNMODIFIED_FORM'):
+                if hasattr(obj, 'UNMODIFIED_FORM') or \
+                        'Modified-Proteins' in types:
                     continue
 
                 # we also skip complexes, just to be sure that later all
                 # elements for them will exist
-                if uid[:4] == 'CPLX':
+                if uid[:4] == 'CPLX' or \
+                                 'Protein-Complexes' in types:
                     complexes.append(uid)
                     continue
-
-                types = obj.TYPES.split('; ')
 
                 # Polypeptides
                 if len(set(types + poly)) != len(poly) + len(types):
@@ -1711,9 +1729,15 @@ class MetaCyc():
                                            molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     self.oligopeptides.append(peptide)
                 else:
-                    warnings.warn("Unexpected peptide types! "
-                                  "Let's skip it... \nThe object uid %s" % uid)
-                    continue
+                    #warnings.warn("Unexpected peptide types! "
+                    #              "Let's skip it... \nThe object uid %s" % uid)
+                    peptide = Unspecified(uid=uid,
+                                          name=obj.attr_check("COMMON_NAME", uid))
+                    setattr(peptide, 'molecular_weight_kd',
+                            obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                    peptide.labels = '%s:To_check' %peptide.labels
+                    self.other_nodes.append(peptide)
+                    unknown +=1
 
                 #  creating a Term for the Compound name
                 # (Peptide) -[:HAS_NAME]-> (Term)
@@ -1737,28 +1761,32 @@ class MetaCyc():
                         goterm = goterm.replace('|', '')
                         xref = XRef(goterm)
                         self.xrefs.append(xref)
-                        self.edges.append(CreateEdge(peptide, xref, 'EVIDENCE'))
+                        self.edges.append(
+                            CreateEdge(peptide, xref, 'EVIDENCE'))
                         db_obj = self.db_checker("GO")
-                        self.edges.append(CreateEdge(xref, db_obj, 'LINK_TO'))
+                        self.edges.append(
+                            CreateEdge(xref, db_obj, 'LINK_TO'))
 
                 # creating edge to gene encoding the peptide
                 obj.links_to_gene(peptide, self)
 
                 if hasattr(obj, 'MODIFIED_FORM'):
-                    uid = obj.MODIFIED_FORM
-                    mod_obj = datfile.data[uid]
-                    modification = Unspecified(
-                        name=mod_obj.attr_check("COMMON_NAME", uid), uid=uid)
-                    self.other_nodes.append(modification)
-                    self.name_to_terms(modification)
+                    modified_form = obj.MODIFIED_FORM.split('; ')
+                    for uid in modified_form:
+                        mod_obj = datfile.data[uid]
+                        modification = Unspecified(
+                            name=mod_obj.attr_check("COMMON_NAME", uid),
+                            uid=uid)
+                        self.other_nodes.append(modification)
+                        self.name_to_terms(modification)
 
-                    # creating edges (Peptide) -[:FORMS]-> (Unspecified)
-                    self.edges.append(
-                        CreateEdge(peptide, modification, 'FORMS'))
+                        # creating edges (Peptide) -[:FORMS]-> (Unspecified)
+                        self.edges.append(
+                            CreateEdge(peptide, modification, 'FORMS'))
 
-                    # creating an edge to the Organism node
-                    # (Unspecified) -[:PART_OF]-> (Organism)
-                    obj.links_to_organism(modification, self)
+                        # creating an edge to the Organism node
+                        # (Unspecified) -[:PART_OF]-> (Organism)
+                        obj.links_to_organism(modification, self)
 
             for uid in complexes:
                 obj = datfile.data[uid]
@@ -1841,8 +1869,9 @@ class MetaCyc():
             print "A list with %d oligopeptides has been created!\n" \
                     "A list with %d polypeptides has been created!\n" \
                     "A list with %d protein-complexes has been " \
-                    "created!" % (len(self.oligopeptides),
-                                  len(self.polypeptides), len(self.complexes))
+                    "created!\n" \
+                    "There were %d unknown peptide types!" % (len(self.oligopeptides),
+                                  len(self.polypeptides), len(self.complexes), unknown)
 
     def protein_features_dat(self):
         """
@@ -1925,6 +1954,11 @@ class MetaCyc():
             i = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
+
+                # skipping entries without structure specified
+                if not hasattr(obj, 'ENZYME'):
+                    continue
+
                 enzyme = Enzyme(uid=uid,
                                 name=obj.attr_check("COMMON_NAME", uid))
                 self.proteins.append(enzyme)
@@ -2014,7 +2048,7 @@ class MetaCyc():
                 else:
                     warnings.warn("Unexpected regulation types! "
                                   "Let's skip it... \n"
-                                  "The object uid %s" % uid)
+                                  "The object uid %s \n" % uid)
                     continue
                 self.regulation_events.append(reg)
 
@@ -2214,6 +2248,11 @@ class MetaCyc():
                 if line[0] == '#' or line[:3] == "UNI":
                     continue
                 chunks = line.replace('\n', '').split('\t')
+
+                # skipping empty elements
+                if chunks[0] == '':
+                    continue
+
                 transporter = Transporter(name=chunks[1], reaction=chunks[2])
                 self.proteins.append(transporter)
 
@@ -2232,13 +2271,14 @@ class MetaCyc():
 
                 # creating an edge to the Organism node
                 # (Transporter) -[:PART_OF]-> (Organism)
-                obj.links_to_organism(transporter, self)
+                self.edges.append(
+                            CreateEdge(transporter, self.organism, 'PART_OF'))
 
             transnum = len([p for p in self.proteins
                             if isinstance(p, Transporter)])
             print "%d protein-transporters have been created!" % transnum
         except:
-            print "There is no pathways.col file! Let's skip it..."
+            print "There is no transporters.col file! Let's skip it..."
 
     def summary(self, filename="summary.txt"):
         """

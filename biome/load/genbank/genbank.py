@@ -239,6 +239,12 @@ class GenBank():
         # Creating XRef
         try:
             xrefs = gene.qualifiers['db_xref']
+
+            # Removing GIs from xref list
+            for xref in xrefs:
+                if 'GI' in xref:
+                    xrefs.pop(xref)
+
             self.create_xref(xrefs=xrefs, feature_node=gene_node, check=check)
             self._logger.info('Gene xrefs were found.')
         except:

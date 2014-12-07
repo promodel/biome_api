@@ -436,6 +436,10 @@ class GenBank():
         if not check_poly:
             self._logger.info('CDS was not found. Creating CDS.')
             poly_dict['source'] = ['GenBank']
+            # %%%%%%%%%%%
+            if 'hypothetical protein' in poly_dict['name']:
+                poly_dict['name'] = 'hypothetical protein %s' %feature.qualifiers['locus_tag'][0]
+            # %%%%%%%%%%%
             # Creating a polypeptide node
             poly_node, part_of_org, encodes = self.db_connection.data_base.create(
                     node(poly_dict),

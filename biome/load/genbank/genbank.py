@@ -135,7 +135,8 @@ class GenBank():
             self._logger.info('Organism was not found, creating organism node.')
             # creating organism
             current_organism, = self.db_connection.data_base.create(
-                node({'name': organism_name}))
+                node({'name': organism_name,
+                      'source': ['GenBank']}))
             current_organism.add_labels('Organism')
         elif len(search_organism) > 1:
             self._logger.warning('There are duplicates in the DB.')
@@ -143,6 +144,7 @@ class GenBank():
         else:
             self._logger.info('Organism was found.')
             current_organism = search_organism[0]
+            self.update_source(current_organism, current_organism.get_properties())
         self.organism_list = [current_organism, organism_name, node2link(current_organism)]
 
     def create_or_update_ccp(self):
@@ -168,12 +170,14 @@ class GenBank():
             # Creating chromosome, contig or plasmid
             current_ccp, = self.db_connection.data_base.create(node({'name': ccp_name,
                                                                    'length': ccp_length,
-                                                                   'type': self.seq_type}))
+                                                                   'type': self.seq_type,
+                                                                   'source': ['GenBank']}))
             # Adding label
             current_ccp.add_labels(ccp_label, 'BioEntity', 'DNA')
             self._logger.info('%s was created.' % ccp_label)
         else:
             current_ccp = search_ccp[0][0]
+            self.update_source(current_ccp, current_ccp.get_properties())
             self._logger.info('%s was found.' % ccp_label)
         self.ccp_list = [current_ccp, ccp_name, node2link(current_ccp)]
         self.db_connection.data_base.create(rel(self.ccp_list[0], 'PART_OF', self.organism_list[0]))

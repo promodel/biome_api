@@ -60,6 +60,11 @@ class GenBank():
         for db in dbs:
             db_dict[db.get_properties()['name']] = db
         self._logger.info('The list of external data bases was obtained.')
+        if not db_dict.has_key('GenBank'):
+            genbank_node, = self.db_connection.data_base.create(node({'name':'GenBank'}))
+            genbank_node.add_labels('DB')
+            db_dict['GenBank'] = genbank_node
+            self._logger.info('The GenBank node was not found and was created.')
         return db_dict
 
     def upload(self):
@@ -198,13 +203,17 @@ class GenBank():
             if not check_xref:
                 # Create XRefs
                 self._logger.info('XRef node was not found. Creating XRef node.')
-                refseq_node, refseq_link = self.db_connection.data_base.create(node({'id': refseq}),
-                                                                               rel(current_ccp, 'EVIDENCE', 0))
+                refseq_node, refseq_link = self.db_connection.data_base.\
+                    create(node({'id': refseq}),
+                           rel(current_ccp, 'EVIDENCE', 0),
+                           rel(0, 'LINK_TO', self.external_sources['GenBank']))
                 refseq_node.add_labels('XRef')
             else:
-                self._logger.info('XRef node not found. Creating LINK_TO relation.')
+                self._logger.info('XRef node was found. Creating LINK_TO relation.')
                 # check relation
-                link_to, = self.db_connection.data_base.create(rel(current_ccp, 'LINK_TO', check_xref[0][0]))
+                link_to, = self.db_connection.data_base.\
+                    create(rel(current_ccp, 'EVIDENCE', check_xref[0][0]),
+                           rel(check_xref[0][0], 'LINK_TO', self.external_sources['GenBank']))
         else:
             self._logger.info('Pattern was found.')
 
@@ -649,6 +658,8 @@ class GenBank():
 
         self._logger.info('Creating XRefs.')
         id_list = []
+
+        # Check if feature is already has an XRef
         if check == True:
             self._logger.info('Searching for XRef pattern:')
             session = cypher.Session(self.db_connection.db_link)

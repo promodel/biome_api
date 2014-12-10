@@ -748,11 +748,15 @@ class GenBank():
         ccps = self._next_overlap_test(type_of_node)
         for ccp in ccps:
             for strand in ('forward', 'reverse'):
+                batch = neo4j.WriteBatch(self.db_connection.data_base)
                 features = self._feature_start_ordering(ccp[0], strand, type_of_node)
                 for i in xrange(1, len(features)):
-                    self.db_connection.data_base.create(rel(features[i-1], 'NEXT', features[i]))
+                    batch.create(rel(features[i-1], 'NEXT', features[i]))
+                    # self.db_connection.data_base.create(rel(features[i-1], 'NEXT', features[i]))
                 if ccp[0].get_properties()['type'] == 'circular':
-                    self.db_connection.data_base.create(rel(features[-1], 'NEXT', features[0]))
+                    batch.create(rel(features[-1], 'NEXT', features[0]))
+                    # self.db_connection.data_base.create(rel(features[-1], 'NEXT', features[0]))
+                batch.submit()
                 log_message = 'Created %d relations for %s in %s strand in %s' \
                               % (len(features), type_of_node, strand, self.organism_list[1])
                 self._logger.info(log_message)
@@ -782,43 +786,30 @@ class GenBank():
         log_message = 'Amount of features to NEXT/OVERLAP %d' % len(sorted_features)
         self._logger.info(log_message)
         return sorted_features
-    #
-    # def relation_overlap(self, type_of_node='Feature'):
-    #     """
-    #     The function creates relationships 'OVERLAP' in the 'data_base' between nodes with label 'type_of_node'.
-    #     The nodes must have property 'start' as the function compare 2 'start' values
-    #     to make the relationship.
-    #     """
-    #     if not isinstance(self._current_organism_name, basestring):
-    #         err_message = 'The organism was not chosen. Set current organism before using methods.'
-    #         self._logger.error(err_message)
-    #         raise UserWarning(err_message)
-    #
-    #     if len(list(self.data_base.find('Organism', 'name', self._current_organism_name))) == 0:
-    #         err_message = 'There is no node %s in the database or it does not have an "organism" label.' % self._current_organism_name
-    #         self._logger.error(err_message)
-    #         raise ValueError(err_message)
-    #
-    #     self._start_time = time()
-    #     organism = self._contig_checker(self._current_organism)
-    #     for contig in organism:
-    #         try:
-    #             contig_ref = int(str(contig).split('(')[-1].split(')')[0])
-    #         except:
-    #             contig_ref = int(str(contig).split('{')[0].split('(')[-1])
-    #         features = self._feature_start_ordering(contig_ref, None, type_of_node)
-    #         left_edge = [0]
-    #         for i in xrange(2, len(features)):
-    #             for j in xrange(i-1, max(left_edge)-1, -1):
-    #                 if features[j]['end'] >= features[i]['start']:
-    #                     self.data_base.create(rel(features[i], 'OVERLAP', features[j]))
-    #                 else:
-    #                     left_edge.append(j)
-    #     log_message = 'Created %d relations for %s in %s' \
-    #                   % (len(features), type_of_node, self._current_organism_name)
-    #     self._logger.info(log_message)
-    #     self._stop_time = time()
-    #     print self._stop_time - self._start_time
+
+    def relation_overlap(self, type_of_node='Feature'):
+        """
+        The function creates relationships 'OVERLAP' in the 'data_base' between nodes with label 'type_of_node'.
+        The nodes must have property 'start' as the function compare 2 'start' values
+        to make the relationship.
+        """
+
+        ccps = self._next_overlap_test(type_of_node)
+        for ccp in ccps:
+            features = self._feature_start_ordering(ccp, None, type_of_node)
+            left_edge = [0]
+            batch = neo4j.WriteBatch(self.db_connection.data_base)
+            for i in xrange(2, len(features)):
+                for j in xrange(i-1, max(left_edge)-1, -1):
+                    if features[j]['end'] >= features[i]['start']:
+                        batch.create(rel(features[i], 'OVERLAP', features[j]))
+                        # self.db_connection.data_base.create(rel(features[i], 'OVERLAP', features[j]))
+                    else:
+                        left_edge.append(j)
+        batch.submit()
+        log_message = 'Created %d relations for %s in %s' \
+                      % (len(features), type_of_node, self.organism_list[1])
+        self._logger.info(log_message)
 
 # import doctest
 # doctest.testfile('test_genbank.txt')

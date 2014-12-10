@@ -132,7 +132,7 @@ class GenBank():
         self._logger.info('Searching for organism %s' % organism_name)
         search_organism = list(self.db_connection.data_base.find('Organism', 'name', organism_name))
         if not search_organism:
-            self._logger.info('Organism was not found, creating orgnism node.')
+            self._logger.info('Organism was not found, creating organism node.')
             # creating organism
             current_organism, = self.db_connection.data_base.create(
                 node({'name': organism_name}))

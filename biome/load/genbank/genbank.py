@@ -201,7 +201,6 @@ class GenBank():
                 self._logger.info('XRef node not found. Creating LINK_TO relation.')
                 # check relation
                 link_to, = self.db_connection.data_base.create(rel(current_ccp, 'LINK_TO', check_xref[0][0]))
-                print 'LINK was created.'
         else:
             self._logger.info('Pattern was found.')
 
@@ -704,6 +703,122 @@ class GenBank():
         except:
             self._logger.warning('Node was not found')
             raise UserWarning('Transaction failed.')
+
+    def _next_overlap_test(self, type_of_node):
+        if not isinstance(type_of_node, str):
+            self._logger.error('Wrong type of argument.')
+            raise ValueError('type_of_node must be string.')
+
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp:Chromosome) ' \
+                'WHERE org.name="%s" ' \
+                'RETURN ccp' \
+                % (self.rec.annotations['source'])
+        transaction.append(query)
+        transaction_res = list(transaction.commit())[0]
+        if not transaction_res:
+            raise UserWarning('There is no organism "%s" in the base'
+                              ' or there is no features connected to this organism.'
+                              ' First do organism.upload before doing organism.make_next_relation.'
+                              % self.rec.annotations['source'])
+
+        check_node_label = self.db_connection.data_base.find(type_of_node)
+
+        try:
+            check_node_label = check_node_label.next()
+            props = check_node_label.get_properties()
+        except:
+            self._logger.error('Label was not found in the base.')
+            raise ValueError('Label "%s" is not found in base.' % type_of_node)
+        if not props.has_key('start'):
+            err_message = 'Label "%s" has not got properties start, end and strand.' % type_of_node
+            self._logger.error(err_message)
+            raise ValueError(err_message)
+
+        return transaction_res
+
+    def make_next_relation(self, type_of_node = 'Feature'):
+        """
+        The function creates relationships 'NEXT' in the 'data_base' between nodes with label 'type_of_node'.
+        The nodes must have property 'start' as the function compare 2 'start' values
+        to make the relationship.
+        """
+
+        ccps = self._next_overlap_test(type_of_node)
+        for ccp in ccps:
+            for strand in ('forward', 'reverse'):
+                features = self._feature_start_ordering(ccp[0], strand, type_of_node)
+                for i in xrange(1, len(features)):
+                    self.db_connection.data_base.create(rel(features[i-1], 'NEXT', features[i]))
+                if ccp[0].get_properties()['type'] == 'circular':
+                    self.db_connection.data_base.create(rel(features[-1], 'NEXT', features[0]))
+                log_message = 'Created %d relations for %s in %s strand in %s' \
+                              % (len(features), type_of_node, strand, self.organism_list[1])
+                self._logger.info(log_message)
+
+    def _feature_start_ordering(self, contig_ref, strand, type_of_node):
+        """
+        Private method valuecheck suppose to be done by caller method. Never invoke directly!
+        """
+        contig_ref = node2link(contig_ref)
+
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        if strand == None:
+            query = 'START ccp = node(%s) ' \
+                    'MATCH (element:%s)-[:PART_OF]->(ccp) ' \
+                    'RETURN element ORDER BY element.start' \
+                    % (contig_ref, type_of_node)
+        else:
+            query = 'START ccp = node(%s) ' \
+                    'MATCH (element:%s)-[:PART_OF]->(ccp) ' \
+                    'WHERE element.strand="%s" ' \
+                    'RETURN element ORDER BY element.start' \
+                    % (contig_ref, type_of_node, strand)
+        transaction.append(query)
+        transaction_out = transaction.commit()
+        sorted_features = [result.values[0] for result in transaction_out[0]]
+        log_message = 'Amount of features to NEXT/OVERLAP %d' % len(sorted_features)
+        self._logger.info(log_message)
+        return sorted_features
+    #
+    # def relation_overlap(self, type_of_node='Feature'):
+    #     """
+    #     The function creates relationships 'OVERLAP' in the 'data_base' between nodes with label 'type_of_node'.
+    #     The nodes must have property 'start' as the function compare 2 'start' values
+    #     to make the relationship.
+    #     """
+    #     if not isinstance(self._current_organism_name, basestring):
+    #         err_message = 'The organism was not chosen. Set current organism before using methods.'
+    #         self._logger.error(err_message)
+    #         raise UserWarning(err_message)
+    #
+    #     if len(list(self.data_base.find('Organism', 'name', self._current_organism_name))) == 0:
+    #         err_message = 'There is no node %s in the database or it does not have an "organism" label.' % self._current_organism_name
+    #         self._logger.error(err_message)
+    #         raise ValueError(err_message)
+    #
+    #     self._start_time = time()
+    #     organism = self._contig_checker(self._current_organism)
+    #     for contig in organism:
+    #         try:
+    #             contig_ref = int(str(contig).split('(')[-1].split(')')[0])
+    #         except:
+    #             contig_ref = int(str(contig).split('{')[0].split('(')[-1])
+    #         features = self._feature_start_ordering(contig_ref, None, type_of_node)
+    #         left_edge = [0]
+    #         for i in xrange(2, len(features)):
+    #             for j in xrange(i-1, max(left_edge)-1, -1):
+    #                 if features[j]['end'] >= features[i]['start']:
+    #                     self.data_base.create(rel(features[i], 'OVERLAP', features[j]))
+    #                 else:
+    #                     left_edge.append(j)
+    #     log_message = 'Created %d relations for %s in %s' \
+    #                   % (len(features), type_of_node, self._current_organism_name)
+    #     self._logger.info(log_message)
+    #     self._stop_time = time()
+    #     print self._stop_time - self._start_time
 
 # import doctest
 # doctest.testfile('test_genbank.txt')

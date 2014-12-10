@@ -745,6 +745,7 @@ class GenBank():
         to make the relationship.
         """
 
+        # Make tests and find all ccps for current organism.
         ccps = self._next_overlap_test(type_of_node)
         for ccp in ccps:
             for strand in ('forward', 'reverse'):
@@ -765,16 +766,18 @@ class GenBank():
         """
         Private method valuecheck suppose to be done by caller method. Never invoke directly!
         """
-        contig_ref = node2link(contig_ref)
 
+        contig_ref = node2link(contig_ref)
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
         if strand == None:
+            # Query for OVERLAP
             query = 'START ccp = node(%s) ' \
                     'MATCH (element:%s)-[:PART_OF]->(ccp) ' \
                     'RETURN element ORDER BY element.start' \
                     % (contig_ref, type_of_node)
         else:
+            # Query for NEXT
             query = 'START ccp = node(%s) ' \
                     'MATCH (element:%s)-[:PART_OF]->(ccp) ' \
                     'WHERE element.strand="%s" ' \
@@ -794,11 +797,14 @@ class GenBank():
         to make the relationship.
         """
 
+        # Make tests and find all ccps for current organism.
         ccps = self._next_overlap_test(type_of_node)
         for ccp in ccps:
             features = self._feature_start_ordering(ccp, None, type_of_node)
             left_edge = [0]
             batch = neo4j.WriteBatch(self.db_connection.data_base)
+
+            # Sorting for OVERLAP
             for i in xrange(2, len(features)):
                 for j in xrange(i-1, max(left_edge)-1, -1):
                     if features[j]['end'] >= features[i]['start']:

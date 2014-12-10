@@ -25,7 +25,7 @@ def num2strand(num):
     return strand
 
 class BioGraphConnection():
-    def __init__(self, db_link='http://localhost:7474/db/data/'):
+    def __init__(self, db_link='http://localhost:8484/db/data/'):
         if not isinstance(db_link, str):
             raise TypeError ('Argument must be string.')
 
@@ -708,24 +708,88 @@ class GenBank():
             self._logger.warning('Node was not found')
             raise UserWarning('Transaction failed.')
 
+class GenomeRelations():
+
+    def __init__(self, db_connection, logger_level = logging.INFO):
+        self.db_connection = db_connection
+        logging.basicConfig(filename = 'BiomeDB.log', level = logger_level,
+                            format = '%(asctime)s %(message)s - %(module)s.%(funcName)s',
+                            datefmt='%H:%M:%S-%d.%m.%y')
+        self._logger = logging.getLogger(__name__)
+        self.organism_list = [None, None, None]
+
+    def find_organisms(self):
+        return self.db_connection.data_base.find('Organism')
+
+    def set_organism(self, organism):
+        if isinstance(organism, str):
+            out = self._search_by_name(organism)
+        elif isinstance(organism, int):
+            out = self._search_by_id(organism)
+        else:
+            self._logger.error('Argument must be a string or int.')
+            raise ValueError('Argument must be a string or int.'
+                             'If string it must contain the name of the organism.'
+                             'If int it must be a link to the node in database.')
+        self.organism_list = [out, out.get_properties()['name'], node2link(out)]
+
+    def _search_by_name(self, organism):
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (org:Organism)' \
+                'WHERE org.name="%s" ' \
+                'RETURN org' \
+                % (organism)
+        transaction.append(query)
+        transaction_res = list(transaction.commit())[0]
+        if not transaction_res:
+            err_message = 'There is no organism with name %s in the base.' % organism
+            self._logger.error(err_message)
+            raise UserWarning(err_message)
+        elif len(transaction_res) > 1:
+            err_message = 'There are duplicate organisms with name %s in the base.' % organism
+            self._logger.error(err_message)
+            raise UserWarning(err_message)
+        else:
+            return transaction_res[0][0]
+
+    def _search_by_id(self, organism):
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'START org=node(%d) ' \
+                'RETURN org' \
+                % (organism)
+        transaction.append(query)
+        try:
+            return list(transaction.commit())[0][0][0]
+        except:
+            err_message = 'There is no node with link %d in the base.' % organism
+            self._logger.error(err_message)
+            raise UserWarning(err_message)
+
     def _next_overlap_test(self, type_of_node):
+        if not isinstance(self.organism_list[0], neo4j.Node):
+            self._logger.error('Organism has not been chosen. First chose the organism by set_organism method.')
+            raise ValueError('Organism has not been chosen.')
+
         if not isinstance(type_of_node, str):
             self._logger.error('Wrong type of argument.')
             raise ValueError('type_of_node must be string.')
 
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
-        query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp:Chromosome) ' \
-                'WHERE org.name="%s" ' \
+        query = 'START org=node(%s)' \
+                'MATCH (org:Organism)<-[:PART_OF]-(ccp:Chromosome) ' \
                 'RETURN ccp' \
-                % (self.rec.annotations['source'])
+                % (self.organism_list[2])
         transaction.append(query)
         transaction_res = list(transaction.commit())[0]
         if not transaction_res:
-            raise UserWarning('There is no organism "%s" in the base'
-                              ' or there is no features connected to this organism.'
-                              ' First do organism.upload before doing organism.make_next_relation.'
-                              % self.rec.annotations['source'])
+            raise UserWarning('There is no chromosome, contig or plasmid (ccp)'
+                              ' for organism "%s" in the base.'
+                              'First upload organism to the base '
+                              'before using organism.make_next_relation.'
+                              % self.organism_list[1])
 
         check_node_label = self.db_connection.data_base.find(type_of_node)
 
@@ -742,7 +806,7 @@ class GenBank():
 
         return transaction_res
 
-    def make_next_relation(self, type_of_node = 'Feature'):
+    def make_next_relation(self, type_of_node='Feature'):
         """
         The function creates relationships 'NEXT' in the 'data_base' between nodes with label 'type_of_node'.
         The nodes must have property 'start' as the function compare 2 'start' values
@@ -757,10 +821,8 @@ class GenBank():
                 features = self._feature_start_ordering(ccp[0], strand, type_of_node)
                 for i in xrange(1, len(features)):
                     batch.create(rel(features[i-1], 'NEXT', features[i]))
-                    # self.db_connection.data_base.create(rel(features[i-1], 'NEXT', features[i]))
                 if ccp[0].get_properties()['type'] == 'circular':
                     batch.create(rel(features[-1], 'NEXT', features[0]))
-                    # self.db_connection.data_base.create(rel(features[-1], 'NEXT', features[0]))
                 batch.submit()
                 log_message = 'Created %d relations for %s in %s strand in %s' \
                               % (len(features), type_of_node, strand, self.organism_list[1])
@@ -794,7 +856,7 @@ class GenBank():
         self._logger.info(log_message)
         return sorted_features
 
-    def relation_overlap(self, type_of_node='Feature'):
+    def make_overlap_relation(self, type_of_node='Feature'):
         """
         The function creates relationships 'OVERLAP' in the 'data_base' between nodes with label 'type_of_node'.
         The nodes must have property 'start' as the function compare 2 'start' values
@@ -804,7 +866,7 @@ class GenBank():
         # Make tests and find all ccps for current organism.
         ccps = self._next_overlap_test(type_of_node)
         for ccp in ccps:
-            features = self._feature_start_ordering(ccp, None, type_of_node)
+            features = self._feature_start_ordering(ccp[0], None, type_of_node)
             left_edge = [0]
             batch = neo4j.WriteBatch(self.db_connection.data_base)
 

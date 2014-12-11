@@ -786,7 +786,7 @@ class _DatObject():
                                             annotation = annotation)
                         metacyc.reactants.append(reactant)
                         metacyc.edges.append(
-                            CreateEdge(reagent, reactant, 'IS_A'))
+                            CreateEdge(reactant, reagent, 'IS_A'))
                         metacyc.edges.append(
                             CreateEdge(reactant, node, 'PARTICIPATES_IN'))
                         metacyc.edges.append(
@@ -2074,7 +2074,7 @@ class MetaCyc():
                      'CCO-PERI-BAC', 'CCO-CE-BAC-POS', 'CCO-PM-BAC-POS',
                      'UNKNOWN']
         for cname, cco in zip(common_names, cco_names):
-            compartment = Compartment(name=cname, uid=cco)
+            compartment = Compartment(name=cname, uid=cco, organism=self.organism.name)
             self.compartments.append(compartment)
 
             # creating an edge to the Organism node

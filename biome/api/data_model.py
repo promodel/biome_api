@@ -608,10 +608,11 @@ class Compartment(BioEntity):
     An object of class Compartment. It inherits all methods from the BioEntity
     class.
     """
-    def __init__(self, name, uid):
+    def __init__(self, name, uid, organism):
         BioEntity.__init__(self, name)
         self.name = name
         self.uid = uid
+        self.organism = organism
 
 ###############################################################################
 

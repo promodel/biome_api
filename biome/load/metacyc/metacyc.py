@@ -786,7 +786,7 @@ class _DatObject():
                                             annotation = annotation)
                         metacyc.reactants.append(reactant)
                         metacyc.edges.append(
-                            CreateEdge(reagent, reactant, 'IS_A'))
+                            CreateEdge(reactant, reagent, 'IS_A'))
                         metacyc.edges.append(
                             CreateEdge(reactant, node, 'PARTICIPATES_IN'))
                         metacyc.edges.append(

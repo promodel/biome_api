@@ -780,7 +780,7 @@ class _DatObject():
                                        if item.name == 'Unknown']
                         reactant_name = '%s [%s]' % (reagent.name, comp[1])
                         annotation = '%s_%s_%s' % (reagent.name, comp[1],
-                                                   metacyc.organism)
+                                                   metacyc.organism.name)
                         reactant = Reactant(stoichiometric_coef=num,
                                             name=reactant_name,
                                             annotation = annotation)

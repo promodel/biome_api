@@ -210,8 +210,8 @@ class GenBank():
                 refseq_node.add_labels('XRef')
             else:
                 self._logger.info('XRef node was found. Creating LINK_TO relation.')
-                # check relation
-                link_to, = self.db_connection.data_base.\
+                # Check relation
+                evidence, link_to = self.db_connection.data_base.\
                     create(rel(current_ccp, 'EVIDENCE', check_xref[0][0]),
                            rel(check_xref[0][0], 'LINK_TO', self.external_sources['GenBank']))
         else:
@@ -548,12 +548,15 @@ class GenBank():
             self._logger.info('Feature has no xrefs.')
 
     def update_source(self, node, props):
-        source = props['source']
-        if not isinstance(source, list):
-            source = [source]
-        if not 'GenBank' in source:
-            source.append('GenBank')
-            node.update_properties({'source': sorted(source)})
+        try:
+            source = props['source']
+            if not isinstance(source, list):
+                source = [source]
+            if not 'GenBank' in source:
+                source.append('GenBank')
+                node.update_properties({'source': sorted(source)})
+        except:
+            node.update_properties({'source': ['GenBank']})
 
     def search_gene_pattern(self, start, end, strand):
         if not isinstance(start, int) or not isinstance(end, int):
@@ -790,14 +793,15 @@ class GenomeRelations():
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
         query = 'START org=node(%s)' \
-                'MATCH (org:Organism)<-[:PART_OF]-(ccp:Chromosome) ' \
+                'MATCH (org:Organism)<-[:PART_OF]-(ccp) ' \
+                'WHERE "Chromosome" IN labels(ccp) OR "Contig" IN labels(ccp) OR "Plasmid" IN labels(ccp) ' \
                 'RETURN ccp' \
                 % (self.organism_list[2])
         transaction.append(query)
         transaction_res = list(transaction.commit())[0]
         if not transaction_res:
             raise UserWarning('There is no chromosome, contig or plasmid (ccp)'
-                              ' for organism "%s" in the base.'
+                              ' for organism "%s" in the base. '
                               'First upload organism to the base '
                               'before using organism.make_next_relation.'
                               % self.organism_list[1])
@@ -833,7 +837,10 @@ class GenomeRelations():
                 for i in xrange(1, len(features)):
                     batch.create(rel(features[i-1], 'NEXT', features[i]))
                 if ccp[0].get_properties()['type'] == 'circular':
-                    batch.create(rel(features[-1], 'NEXT', features[0]))
+                    try:
+                        batch.create(rel(features[-1], 'NEXT', features[0]))
+                    except:
+                        pass
                 batch.submit()
                 log_message = 'Created %d relations for %s in %s strand in %s' \
                               % (len(features), type_of_node, strand, self.organism_list[1])

@@ -203,7 +203,7 @@ class GenBank():
             if not check_xref:
                 # Create XRefs
                 self._logger.info('XRef node was not found. Creating XRef node.')
-                refseq_node, refseq_link = self.db_connection.data_base.\
+                refseq_node, evidence_link, refseq_link = self.db_connection.data_base.\
                     create(node({'id': refseq}),
                            rel(current_ccp, 'EVIDENCE', 0),
                            rel(0, 'LINK_TO', self.external_sources['GenBank']))

@@ -1,0 +1,494 @@
+# from BiomeDB_classes import *
+import logging
+import os
+from Bio.Blast import NCBIWWW, NCBIXML
+from time import time
+from py2neo import neo4j, node, rel, cypher
+import warnings
+
+class MakeJob():
+    def __init__(self, db_link = 'http://localhost:8484/db/data/', e_value=0.00001, logger_level=logging.INFO):
+        logging.basicConfig(filename = 'BiomeDB.log',
+                            level = logger_level,
+                            format = '%(asctime)s %(message)s - %(module)s.%(funcName)s',
+                            datefmt='%H:%M:%S-%d.%m.%y')
+        self._logger = logging.getLogger(__name__)
+        self._logger.info('Initialization of Blaster')
+        self._blast_input_txt = ''
+        self.e_value = e_value
+        self.filename = ''
+        self.db_link = db_link
+        self.data_base = neo4j.GraphDatabaseService(self.db_link)
+
+    def split_txt(self, split_number, organism = 'Escherichia_coli_str._K-12_substr._MG1655'):
+        #Data base is need to find non analyzed proteins for certain organism.
+        if not isinstance(organism, str):
+            err_message = 'Organism argument must be a string.'
+            self._logger.error(err_message)
+            raise ValueError(err_message)
+
+        #Set the name of the file with non-BLASTed  proteins.
+        self._blast_input_txt = organism + '_input_blast'
+        self.filename = self._blast_input_txt + '.txt'
+
+        #Set current organism
+        #Find non-BLASTed proteins or check if the file already exists.
+        writing_flag = self._find_non_blasted(organism)
+
+        if writing_flag:
+            #Read the file
+            poly_file = open(self.filename, 'r')
+            lines = poly_file.readlines()
+            init_average_quantity = len(lines)/split_number
+            average_quantity = init_average_quantity
+            line_number = 0
+
+            #Make FASTA-files out of the file
+            for i in xrange(split_number):
+                new_file = open(self._blast_input_txt + '_part' + str(i) + '.FASTA', 'w')
+                if i == split_number - 1:
+                    average_quantity = len(lines) + len(lines)%split_number
+                try:
+                    for line_ind in xrange(line_number, average_quantity):
+                            #print line_ind
+                            header, sequence = lines[line_ind].split('\t')
+                            new_file.write('>' + header + '\n' + sequence)
+                    line_number = average_quantity
+                    average_quantity += init_average_quantity
+                except:
+                    new_file.close()
+
+            # Creating bash-script which will start blastp command
+            bash = open('run_blast.sh', 'w')
+            bash.write('#!/usr/bin/bash\n')
+            self._blast_input_txt + '_part' + str(i) + '.FASTA'
+            bash_input = ('blastp -db $2'
+                       ' -evalue %f'
+                       ' -out "%s_blast_out_part$1.xml"'
+                       ' -query "%s' + '_part$1.FASTA"'
+                       ' -outfmt 5 ') % (self.e_value, self._blast_input_txt, self._blast_input_txt)
+            bash.write(bash_input)
+            bash.close()
+
+    def _find_non_blasted(self, organism):
+        """
+        Private method that searches in the data bases for the proteins
+        that must be BLASTed. If such file already exists prints message.
+        """
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (org:Organism) WHERE org.name="%s" RETURN org' % organism
+        transaction.append(query)
+        find_organism = list(transaction.commit())[0]
+
+        if not find_organism:
+            err_message = 'There is no organism with name "%s" in the base.' % organism
+            self._logger.error(err_message)
+            raise ValueError(err_message)
+        elif len(find_organism) > 1:
+            err_message = 'There are duplicate organisms with name "%s" in the base.' % organism
+            self._logger.error(err_message)
+            raise UserWarning(err_message)
+
+        if not os.path.isfile(self._blast_input_txt + '.txt'):
+
+            #Find non-BLASTed polypeptides polypeptides for current organism
+            transaction = session.create_transaction()
+            query = 'MATCH (o:Organism)<-[:PART_OF]-(p:Polypeptide) ' \
+                    'WHERE NOT((p)-[:SIMILAR]-(:Polypeptide)) ' \
+                    'AND o.name="%s" ' \
+                    'RETURN p' % organism
+            transaction.append(query)
+            log_message = 'Searching query: ' + query
+            self._logger.info(log_message)
+            transaction_out = transaction.commit()[0]
+            if not transaction_out:
+                log_message = 'Nothing was found on your query: %s' % query
+                self._logger.warning(log_message)
+                warnings.warn(log_message)
+            else:
+                polypeptides_non_analyzed = [result.values for result in transaction_out]
+
+                #File to write found proteins
+                polypeptides_file = open(self.filename, 'w')
+
+                #Write it into the file
+                for poly in polypeptides_non_analyzed:
+                    poly = poly[0]
+                    try:
+                        poly_str = str(poly).split(' ')[0].replace('(', '') + \
+                                   '\t' + str(poly.get_properties()['seq']) + '\n'
+                        polypeptides_file.write(poly_str)
+                    except:
+                        log_message = 'Could not write a polypeptide into a file: %s' % str(poly)
+                        self._logger.error(log_message)
+                        warnings.warn(log_message)
+                polypeptides_file.close()
+                log_message = '%d proteins to be BLASTed.' % len(polypeptides_non_analyzed)
+                self._logger.info(log_message)
+                print log_message
+                return True
+        else:
+            log_message = 'File containing proteins for BLAST is already exist.'
+            self._logger.info(log_message)
+            print log_message
+            return False
+
+# def compile(xml_file, fasta_file, file_quantity):
+#     """
+#     Method reads obtained xml-files and FASTA-files to write final result into txt-file.
+#     xml_file and fasta_file must have similar name.
+#     """
+#     #Open xml-file for reading
+#     out = open(xml_file + '_parsed' +'.txt', 'w')
+#     gi_file = open(fasta_file + '_gi.txt', 'w')
+#     #Read files
+#     for i in xrange(file_quantity):
+#         current_file = open(xml_file + '_part' + str(i) + '.xml', 'r')
+#         initial_file = open(fasta_file + '_part' + str(i) + '.FASTA', 'r')
+#         blast_read = NCBIXML.parse(current_file)
+#         #Read result for each protein.
+#         for reads in blast_read:
+#             header = initial_file.readline()[1:]
+#             seq = initial_file.readline()
+#             out_str = '@\t%s\t%s' % (header, seq)
+#             out.write(out_str)
+#             #Read each alignment for protein
+#             for alignment in reads.alignments:
+#                 #Write result if it satisfies 2 conditions
+#                 if alignment.hsps[0].identities/float(alignment.length) >= 0.7 and\
+#                                 alignment.length >= round(0.5*len(seq)):
+#                     out_str = '%.2f\t%s\t%s\n' \
+#                          % (alignment.hsps[0].identities/float(alignment.length),
+#                             alignment.title,
+#                             alignment.hsps[0].sbjct)
+#                     out.write(out_str)
+#                     #write protein gi to a file
+#                     out_str = '%s\n' % (alignment.hit_id.split('|')[1])
+#                     gi_file.write(out_str)
+#         current_file.close()
+#         initial_file.close()
+#     out.close()
+#     gi_file.close()
+
+def compile_multiple_strings(xml_file, fasta_file, file_quantity):
+    """
+    Method reads obtained xml-files and FASTA-files to write final result into txt-file.
+    xml_file and fasta_file must have similar name.
+    """
+    #Open xml-file for reading
+    out = open(xml_file + '_parsed.txt', 'w')
+    gi_file = open(fasta_file + '_gi.txt', 'w')
+    #Read files
+    for i in xrange(file_quantity):
+        current_file = open(xml_file + '_part' + str(i) + '.xml', 'r')
+        initial_file = open(fasta_file + '_part' + str(i) + '.FASTA', 'r')
+        blast_read = NCBIXML.parse(current_file)
+        #Read result for each protein.
+        for reads in blast_read:
+            header = initial_file.readline()[1:]
+            seq = initial_file.readline()
+            out_str = '@\t%s\t%s' % (header, seq)
+            out.write(out_str)
+            #Read each alignment for protein
+            for alignment in reads.alignments:
+                #Write result if it satisfies 2 conditions
+                if alignment.hsps[0].identities/float(alignment.length) >= 0.7 and\
+                                alignment.length >= round(0.5*len(seq)):
+                    partial_alignments = alignment.title.split('>')
+                    for partial_alignment in partial_alignments:
+                        out_str = '%.2f\t%s\t%s\n' \
+                             % (alignment.hsps[0].identities/float(alignment.length),
+                                partial_alignment,
+                                alignment.hsps[0].sbjct)
+                        out.write(out_str)
+                    #write protein gi to a file
+                    out_str = '%s\n' % (alignment.hit_id.split('|')[1])
+                    gi_file.write(out_str)
+        current_file.close()
+        initial_file.close()
+    out.close()
+    gi_file.close()
+
+def node2link(gb_node):
+    print gb_node
+    return str(gb_node).split(' ')[0].split('(')[1]
+
+class BlastUploader():
+    def __init__(self, db_link='http://localhost:8484/db/data/', logger_level=logging.INFO):
+        logging.basicConfig(filename = 'BiomeDB.log',
+                            level = logger_level,
+                            format = '%(asctime)s %(message)s - %(module)s.%(funcName)s',
+                            datefmt='%H:%M:%S-%d.%m.%y')
+        self._logger = logging.getLogger(__name__)
+        self._logger.info('Initialization of Blaster')
+        # self.gdb = Biome_db(db_link)
+        self.db_link = db_link
+        self.data_base = neo4j.GraphDatabaseService(self.db_link)
+        self._gb_node = self._get_gb_node()
+
+    def _get_gb_node(self):
+        db = list(self.data_base.find('DB', 'name', 'GenBank'))
+        if not db:
+            db = self.data_base.create('DB', 'name', 'GenBank')
+            return db
+        elif len(db) > 1:
+            log_message = 'There are two "GenBank" database nodes.'
+            self._logger.error(log_message)
+            raise Warning(log_message)
+        else:
+            return db[0]
+
+    def find_nodes(self, label, keys=None, values=None):
+        # if not (isinstance(keys, list) and isinstance(values, list))\
+        #         or not (isinstance(keys, tuple) and isinstance(values, tuple)):
+        #     raise UserWarning('Keys and values must be lists or tuples.')
+        if len(keys) != len(values):
+            raise UserWarning('The number of keys must be the same as the number of values.')
+
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (node:%s) WHERE ' % label
+        for key, value in zip(keys, values):
+            query += 'node.%s="%s" AND ' % (key, value)
+        query = query[:-4] + 'RETURN node'
+        transaction.append(query)
+        node = transaction.commit()
+        try:
+            return list(node[0][0])
+        except:
+            return []
+
+    def find_organisms(self):
+        return self.data_base.find('Organism')
+
+    def _by_id(self, line, current_organism=None):
+        return [self.data_base.node(line.split('\t')[1])]
+
+    def _by_seq(self, line, current_organism):
+        seq = line.split('\t')[1][:-1]
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (o:Organism)<-[:PART_OF]-(p:Polypeptide) ' \
+                'WHERE p.seq="%s" ' \
+                'AND o.name="%s" ' \
+                'RETURN p' % (seq, current_organism)
+        transaction.append(query)
+        log_message = 'Searching query: ' + query
+        self._logger.info(log_message)
+        transaction_out = transaction.commit()[0]
+        if not transaction_out:
+            log_message = 'Nothing was found on the query.'
+            self._logger.error(log_message)
+            print log_message, query
+        else:
+            return transaction_out[0]
+
+    def terms2dict(self):
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (t:Term) ' \
+                'RETURN t, t.text'
+        transaction.append(query)
+        transaction_out = transaction.commit()[0]
+        terms_dict = {}
+        for out in transaction_out:
+            terms_dict[out[1]] = out[0]
+        return terms_dict
+
+    def upload_batch_nodes(self, parsed_result, organism_name=None, seq_flag=True):
+        if seq_flag == True and not isinstance(organism_name, str):
+            err_message = 'If you want to search polypeptides by sequence,' \
+                           ' you have to set the organism name' \
+                           ' as e.g. in the name of FASTA-file.'
+            self._logger.error(err_message)
+            raise ValueError(err_message)
+
+        # Read parsed file
+        res_file = open(parsed_result, 'r')
+        file_read = res_file.readlines()
+        res_file.close()
+
+        start_time = time()
+        at_counter = 0
+
+        # Set dictionaries for nodes
+        orgs_dict, gi_dict = {}, {}
+
+        # Set dictionaries for batches
+        batch_orgs, batch_gi, batch_terms = {}, {}, {}
+
+        # Set dictionary of terms and get terms from the base
+        terms_dict = self.terms2dict()
+
+        gi_list, terms_list, orgs_list = [], [], []
+
+        # Choosing the polypeptide nodes searching by id or by sequence
+        if seq_flag:
+            symbol = '\t'
+            find_func = self._by_seq
+        else:
+            symbol = '@'
+            find_func = self._by_id
+
+        # Reading file line by line
+        batch = neo4j.WriteBatch(self.data_base)
+        for line in file_read:
+            if line[0] == symbol:
+                # Polypeptide is found, then searching for homologs
+                at_counter += 1
+
+                # Setting current polypeptide
+                poly = find_func(line, organism_name)
+                batch_out = batch.submit()
+                gi_dict, terms_dict, orgs_dict =\
+                    self._batch2dict(gi_dict, terms_dict, orgs_dict, gi_list, terms_list, orgs_list, batch_out)
+                gi_list, terms_list, orgs_list = [], [], []
+                # Creating batch for current poly
+                batch_terms, batch_orgs, batch_gi = {}, {}, {}
+                batch = neo4j.WriteBatch(self.data_base)
+                # print at_counter, time() - start_time, poly
+                start_time = time()
+            #     make check of SIMILAR-rel to avoid making replicas
+            # Homolog is found
+            elif line[4] == '\t':
+                # Reading the homolog line
+                similarity, seq, name, org, gi = self._line_distinguisher(line)
+                if not gi in gi_dict:
+                    # may find more than one polypeptide
+                    # maybe we shall include additional property to distinguish polypeptides?
+                    # b_poly_search_db = list(self.gdb.data_base.find('Polypeptide', 'seq', seq))
+
+                    # Searching for b_poly
+                    b_poly_search_db = self.find_nodes('Polypeptide', ['seq'], [seq])
+                    if not b_poly_search_db:
+                        # if not gi in batch_gi:
+                        b_poly, batch = self._b_poly_process(gi, seq, name, batch_gi, batch)
+                        gi_list.append(gi)
+                        # Searching for b_poly's organism
+                        if not org in orgs_dict:
+                            organism_search_db = list(self.data_base.find(
+                                'Organism', 'name', org))
+                            if not organism_search_db:
+                                # if not org in batch_orgs:
+                                organism, batch_orgs, batch = self._org_process(org, batch_orgs, batch)
+                                orgs_list.append(org)
+                            else:
+                                organism = organism_search_db[0]
+                                orgs_dict[org] = organism
+                        else:
+                            organism = orgs_dict[org]
+
+                        # Searching for b_poly's term
+                        if not name in terms_dict:
+                            term_search_db = list(self.data_base.find('Term', 'text', name))
+                            if not term_search_db:
+                                # if not name in batch_terms:
+                                term, batch = self._term_process(name, batch_terms, batch)
+                                terms_list.append(name)
+                            else:
+                                term = term_search_db[0]
+                                terms_dict[name] = term
+
+                        else:
+                            term = terms_dict[name]
+
+                        # Creating relations
+                        ref = batch.create(node({'id': gi}))
+                        batch.add_labels(ref, 'XRef')
+                        batch.create(rel(b_poly, 'PART_OF', organism))
+                        batch.create(rel(b_poly, 'HAS_NAME', term))
+                        batch.create(rel(b_poly, 'EVIDENCE', ref))
+                        batch.create(rel(ref, 'LINK_TO', self._gb_node))
+                        self._similar_process(gi, similarity, poly, b_poly, batch)
+                    else:
+                        # print at_counter, 'already exists'
+                        for b_poly in b_poly_search_db:
+                            gi_dict[gi] = b_poly
+                            self._similar_process(gi, similarity, poly, b_poly, batch)
+                else:
+                    b_poly = gi_dict[gi]
+                    self._similar_process(gi, similarity, poly, b_poly, batch)
+                    # gi_dict[gi] = b_poly
+        batch.submit()
+        return gi_dict
+
+    def _batch2dict(self, gi_dict, terms_dict, orgs_dict, gi_list, terms_list, orgs_list, batch_res):
+        batch_res = [res for res in batch_res if type(res) == neo4j.Node]
+        gi_counter, terms_counter, orgs_counter = 0, 0, 0
+        for res in batch_res:
+            labels = res.get_labels()
+            if 'Polypeptide' in labels:
+                gi_dict[gi_list[gi_counter]] = res
+                gi_counter += 1
+            elif 'Organism' in labels:
+                orgs_dict[orgs_list[orgs_counter]] = res
+                orgs_counter += 1
+            elif 'Term' in labels:
+                terms_dict[terms_list[terms_counter]] = res
+                terms_counter += 1
+        return gi_dict, terms_dict, orgs_dict
+
+
+    def _b_poly_process(self, gi, seq, name, batch_gi, batch):
+        if not gi in batch_gi:
+            b_poly = batch.create(node({'seq': seq, 'name': name}))
+            batch.add_labels(b_poly, 'Polypeptide', 'BioEntity')
+            batch_gi[gi] = b_poly
+        else:
+            b_poly = batch_gi[gi]
+        return b_poly, batch
+
+    def _org_process(self, org, batch_orgs, batch):
+        if not org in batch_orgs:
+            organism = batch.create(node({'name': org, 'source': ['GenBank']}))
+            batch.add_labels(organism, 'Organism')
+            batch_orgs[org] = organism
+            # batch_orgs.append(organism.body.values()[0])
+        else:
+            organism = batch_orgs[org]
+        return organism, batch_orgs, batch
+
+    def _term_process(self, name, batch_terms, batch):
+        if not name in batch_terms:
+            term = batch.create(node({'text': name}))
+            batch.add_labels(term, 'Term')
+            batch_terms[name] = term
+            # batch_terms.append(term.body.values()[0])
+            # terms_dict[names[org_counter]] = term
+        else:
+            term = batch_terms[name]
+        return term, batch
+
+    def _similar_process(self, gi, similarity, poly, b_poly, batch):
+        for multiple_poly in poly:
+            batch.create(rel(b_poly,
+                             ('SIMILAR', {'gi': gi, 'similarity': similarity}),
+                             multiple_poly))
+
+    def _find_or_create_node(self, key_string, node_dict, batch_dict, node_type, batch):
+        if not key_string in node_dict:
+            node_search_db = list(self.gdb.data_base.find(node_type, 'name', key_string))
+            if not node_search_db:
+                if not key_string in batch_dict:
+                    current_node = batch.create(node({'name': key_string}))
+                    batch.add_labels(current_node, node_type)
+                    batch_dict[key_string] = current_node
+                    # batch_orgs.append(organism.body.values()[0])
+                else:
+                    current_node = batch_dict[key_string]
+            else:
+                current_node = node_search_db[0]
+                node_dict[key_string] = current_node
+
+    def _line_distinguisher(self, line):
+        similarity, refs, seq = line.split('\t')
+        similarity = float(similarity)
+        seq = seq[:-1]
+        refs = refs[3:]
+        refs = refs.split('|')
+        gi = refs[0::4][0]
+        names_and_orgs = refs[3::4]
+        name = [name.split('[')[0][1:-1] for name in names_and_orgs][0]
+        org = [org.split('[')[1].split(']')[0] for org in names_and_orgs][0]
+        return similarity, seq, name, org, gi

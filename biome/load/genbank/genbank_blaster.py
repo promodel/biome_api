@@ -51,8 +51,8 @@ class MakeJob():
                 try:
                     for line_ind in xrange(line_number, average_quantity):
                             #print line_ind
-                            header, sequence = lines[line_ind].split('\t')
-                            new_file.write('>' + header + '\n' + sequence)
+                            header, sequence, tail = lines[line_ind].split('\t')
+                            new_file.write('>' + header + '\t' + tail + sequence + '\n')
                     line_number = average_quantity
                     average_quantity += init_average_quantity
                 except:
@@ -94,10 +94,12 @@ class MakeJob():
 
             #Find non-BLASTed polypeptides polypeptides for current organism
             transaction = session.create_transaction()
-            query = 'MATCH (o:Organism)<-[:PART_OF]-(p:Polypeptide) ' \
+            query = 'MATCH (o:Organism)<-[:PART_OF]-(p:Polypeptide)<-[:ENCODES]-(g:Gene)-[:PART_OF]->(ccp) ' \
                     'WHERE NOT((p)-[:SIMILAR]-(:Polypeptide)) ' \
                     'AND o.name="%s" ' \
-                    'RETURN p' % organism
+                    'AND HAS(p.seq) AND ' \
+                    '(ccp)-[:PART_OF]->(o) ' \
+                    'RETURN distinct p, p.seq, g.start, g.end, ccp' % organism
             transaction.append(query)
             log_message = 'Searching query: ' + query
             self._logger.info(log_message)
@@ -107,24 +109,23 @@ class MakeJob():
                 self._logger.warning(log_message)
                 warnings.warn(log_message)
             else:
-                polypeptides_non_analyzed = [result.values for result in transaction_out]
-
                 #File to write found proteins
                 polypeptides_file = open(self.filename, 'w')
 
                 #Write it into the file
-                for poly in polypeptides_non_analyzed:
-                    poly = poly[0]
+                poly_counter = 0
+                for result in transaction_out:
                     try:
-                        poly_str = str(poly).split(' ')[0].replace('(', '') + \
-                                   '\t' + str(poly.get_properties()['seq']) + '\n'
+                        poly_str = node2link(result[0])
+                        poly_str += '\t%s\t%d:%d:%s\n' % (result[1], result[2], result[3], node2link(result[4]))
                         polypeptides_file.write(poly_str)
+                        poly_counter += 1
                     except:
-                        log_message = 'Could not write a polypeptide into a file: %s' % str(poly)
+                        log_message = 'Could not write a polypeptide into a file: %s' % str(result[0])
                         self._logger.error(log_message)
                         warnings.warn(log_message)
                 polypeptides_file.close()
-                log_message = '%d proteins to be BLASTed.' % len(polypeptides_non_analyzed)
+                log_message = '%d proteins to be BLASTed.' % poly_counter
                 self._logger.info(log_message)
                 print log_message
                 return True
@@ -211,7 +212,6 @@ def compile_multiple_strings(xml_file, fasta_file, file_quantity):
     gi_file.close()
 
 def node2link(gb_node):
-    print gb_node
     return str(gb_node).split(' ')[0].split('(')[1]
 
 class BlastUploader():

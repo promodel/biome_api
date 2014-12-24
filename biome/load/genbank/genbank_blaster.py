@@ -75,7 +75,12 @@ class MakeJob():
         Private method that searches in the data bases for the proteins
         that must be BLASTed. If such file already exists prints message.
         """
-        session = cypher.Session(self.db_link)
+        try:
+            session = cypher.Session(self.db_link)
+        except:
+            log_message = 'Could not connect to the base: %s' % self.db_link
+            self._logger.error(log_message)
+            raise UserWarning(log_message)
         transaction = session.create_transaction()
         query = 'MATCH (org:Organism) WHERE org.name="%s" RETURN org' % organism
         transaction.append(query)
@@ -182,14 +187,14 @@ def compile_multiple_strings(xml_file, fasta_file, file_quantity):
     gi_file = open(fasta_file + '_gi.txt', 'w')
     #Read files
     for i in xrange(file_quantity):
-        current_file = open(xml_file + '_part' + str(i) + '.xml', 'r')
+        result_file = open(xml_file + '_part' + str(i) + '.xml', 'r')
         initial_file = open(fasta_file + '_part' + str(i) + '.FASTA', 'r')
-        blast_read = NCBIXML.parse(current_file)
+        blast_read = NCBIXML.parse(result_file)
         #Read result for each protein.
         for reads in blast_read:
             header = initial_file.readline()[1:]
             seq = initial_file.readline()
-            out_str = '@\t%s\t%s' % (header, seq)
+            out_str = '@\t%s\t%s' % (header[:-1], seq)
             out.write(out_str)
             #Read each alignment for protein
             for alignment in reads.alignments:
@@ -206,7 +211,7 @@ def compile_multiple_strings(xml_file, fasta_file, file_quantity):
                     #write protein gi to a file
                     out_str = '%s\n' % (alignment.hit_id.split('|')[1])
                     gi_file.write(out_str)
-        current_file.close()
+        result_file.close()
         initial_file.close()
     out.close()
     gi_file.close()
@@ -325,16 +330,14 @@ class BlastUploader():
 
         # Choosing the polypeptide nodes searching by id or by sequence
         if seq_flag:
-            symbol = '\t'
             find_func = self._by_seq
         else:
-            symbol = '@'
             find_func = self._by_id
 
         # Reading file line by line
         batch = neo4j.WriteBatch(self.data_base)
         for line in file_read:
-            if line[0] == symbol:
+            if line[0] == '@':
                 # Polypeptide is found, then searching for homologs
                 at_counter += 1
 

@@ -286,6 +286,7 @@ class BlastUploader():
             log_message = 'Nothing was found on the query.'
             self._logger.error(log_message)
             print log_message, query
+            return []
         else:
             return transaction_out[0]
 
@@ -354,7 +355,7 @@ class BlastUploader():
                 start_time = time()
             #     make check of SIMILAR-rel to avoid making replicas
             # Homolog is found
-            elif line[4] == '\t':
+            elif line[4] == '\t' and poly:
                 # Reading the homolog line
                 similarity, seq, name, org, gi = self._line_distinguisher(line)
                 if not gi in gi_dict:
@@ -368,6 +369,7 @@ class BlastUploader():
                         # if not gi in batch_gi:
                         b_poly, batch = self._b_poly_process(gi, seq, name, batch_gi, batch)
                         gi_list.append(gi)
+
                         # Searching for b_poly's organism
                         if not org in orgs_dict:
                             organism_search_db = list(self.data_base.find(
@@ -392,17 +394,16 @@ class BlastUploader():
                             else:
                                 term = term_search_db[0]
                                 terms_dict[name] = term
-
                         else:
                             term = terms_dict[name]
 
                         # Creating relations
                         ref = batch.create(node({'id': gi}))
                         batch.add_labels(ref, 'XRef')
+                        batch.create(rel(ref, 'LINK_TO', self._gb_node))
+                        batch.create(rel(b_poly, 'EVIDENCE', ref))
                         batch.create(rel(b_poly, 'PART_OF', organism))
                         batch.create(rel(b_poly, 'HAS_NAME', term))
-                        batch.create(rel(b_poly, 'EVIDENCE', ref))
-                        batch.create(rel(ref, 'LINK_TO', self._gb_node))
                         self._similar_process(gi, similarity, poly, b_poly, batch)
                     else:
                         # print at_counter, 'already exists'

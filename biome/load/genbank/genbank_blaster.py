@@ -66,7 +66,8 @@ class MakeJob():
                        ' -evalue %f'
                        ' -out "%s_blast_out_part$1.xml"'
                        ' -query "%s' + '_part$1.FASTA"'
-                       ' -outfmt 5 ') % (self.e_value, self._blast_input_txt, self._blast_input_txt)
+                       ' -outfmt 5 '
+                       ' -a 4 ') % (self.e_value, self._blast_input_txt, self._blast_input_txt)
             bash.write(bash_input)
             bash.close()
 

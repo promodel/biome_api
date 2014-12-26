@@ -268,10 +268,18 @@ class BlastUploader():
         return self.data_base.find('Organism')
 
     def _by_id(self, line, current_organism=None):
-        return [self.data_base.node(line.split('\t')[1])]
+        node_id = line.split('\t')[1]
+        try:
+            return [self.data_base.node(node_id)]
+        except:
+            log_message = 'There is no node with id: %s' % node_id
+            self._logger.error(log_message)
+            warnings.warn(log_message)
+            return []
+
 
     def _by_seq(self, line, current_organism):
-        seq = line.split('\t')[1][:-1]
+        seq = line.split('\t')[-1][:-1]
         session = cypher.Session(self.db_link)
         transaction = session.create_transaction()
         query = 'MATCH (o:Organism)<-[:PART_OF]-(p:Polypeptide) ' \
@@ -285,7 +293,8 @@ class BlastUploader():
         if not transaction_out:
             log_message = 'Nothing was found on the query.'
             self._logger.error(log_message)
-            print log_message, query
+            warnings.warn(log_message + query)
+            # print log_message, query
             return []
         else:
             return transaction_out[0]
@@ -344,6 +353,15 @@ class BlastUploader():
 
                 # Setting current polypeptide
                 poly = find_func(line, organism_name)
+                if not poly:
+                    split_line = line.split('\t')
+                    node_id, seq = split_line[1], split_line[-1]
+                    g_start, g_end, ccp = split_line[2].split(':')
+                    log_message = 'Nothing was found by id:%s or sequence:%s ' \
+                                  'additional info gene_start:%s gene_end:%s in ccp:%s' %\
+                                  (node_id, seq, g_start, g_end, ccp)
+                    warnings.warn(log_message)
+                    self._logger.error(log_message)
                 batch_out = batch.submit()
                 gi_dict, terms_dict, orgs_dict =\
                     self._batch2dict(gi_dict, terms_dict, orgs_dict, gi_list, terms_list, orgs_list, batch_out)

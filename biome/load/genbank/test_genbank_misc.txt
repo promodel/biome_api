@@ -1,0 +1,43 @@
+10. Test for create_xref.
+Description
+    >>> connection = gb.BioGraphConnection()
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> gene = list(organism.db_connection.data_base.find('Gene'))[2]
+    >>> xrefs = organism.rec.features[5].qualifiers['db_xref']
+    >>> session = gb.cypher.Session(connection.db_link)
+    >>> transaction = session.create_transaction()
+    >>> query = 'START n=node(8) MATCH (g)-->(x:XRef) RETURN COUNT(x)'
+    >>> transaction.append(query)
+    >>> transaction_out1 = transaction.commit()[0][0]
+    >>> organism.create_xref(xrefs, gene, True)
+    >>> transaction = session.create_transaction()
+    >>> query = 'START n=node(8) MATCH (g)-->(x:XRef) RETURN COUNT(x)'
+    >>> transaction.append(query)
+    >>> transaction_out2 = transaction.commit()[0][0]
+    >>> transaction_out2[0] - transaction_out1[0]
+    2
+    >>> len(organism.external_sources)
+    4
+    >>> transaction = session.create_transaction()
+    >>> query = 'match (g{name:"Swoo_0003"})-[e:EVIDENCE]->(x{id:"IPR001238"})-[l]-(db) delete e,l,x, db'
+    >>> transaction.append(query)
+    >>> transaction.commit()
+    [[]]
+   
+12. Test for make_overlap_relation.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.search_pattern_cypher()
+    >>> organism.make_overlap_relation(1)
+    Traceback (most recent call last):
+    ValueError: type_of_node must be string.
+    >>> organism.make_overlap_relation('Foo')
+    Traceback (most recent call last):
+    ValueError: Label "Foo" is not found in base.
+    >>> organism.make_overlap_relation('Polypeptide')
+    Traceback (most recent call last):
+    ValueError: Label "Polypeptide" has not got properties start, end and strand.
+    >>> organism.make_overlap_relation('Feature')
+    Traceback (most recent call last):
+    UserWarning: There is no organism "hui" in the base or there is no features connected to this organism. First do organism.upload before doing organism.make_overlap_relation.

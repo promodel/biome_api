@@ -1,0 +1,208 @@
+The ``GenBank`` module
+=====================
+
+Loading module
+    >>> import os
+    >>> os.chdir = ('/home/artem/work/reps/GenBank/biome_api/biome/load/genbank/')
+    >>> import genbank as gb
+    >>> gb_file_shw = 'Shewanella_woodyi_ATCC_51908_test.gb'
+    >>> gb_file_chl = 'Chlamydia_trachomatis_A2497_complete_genome_test.gb'
+    >>> gb_file_ali = 'Aliivibrio_salmonicida_LFI1238_chromosome_2.gb'
+
+``BioGraphConnection`` class
+----------------------------
+1. Tests for connection
+
+    >>> db = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> db.data_base.graph_db
+    Resource(u'http://localhost:8484/db/data/')
+    >>> db = gb.BioGraphConnection(1)
+    Traceback (most recent call last):
+    TypeError: Argument must be string.
+    >>> db = gb.BioGraphConnection('not_a_link')
+    >>> db.data_base.graph_db
+    Traceback (most recent call last):
+    ValueError: Unsupported URI scheme None
+
+``GenBank`` class
+-----------------
+1. Tests for constructor
+
+    >>> db = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(1, gb)
+    Traceback (most recent call last):
+    TypeError: gb_file must be a string with filename.
+    >>> organism = gb.GenBank(gb_file_shw, 1)
+    Traceback (most recent call last):
+    TypeError: db_connection must be an instance of the class BioGraphConnection.
+    >>> organism = gb.GenBank('not_existing_file.gb', db)
+    Traceback (most recent call last):
+    ValueError: There is no not_existing_file.gb in current directory.
+    
+2. Test get_external_db.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.external_sources['GenBank']
+    Node('http://localhost:8484/db/data/node/9')
+    >>> len(organism.external_sources)
+    1
+
+3. Test for method start_pattern_cypher.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.search_pattern_cypher()
+    
+4. Test for method create_or_update_organism.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_ali, connection)
+    >>> organism.create_or_update_organism()
+    Traceback (most recent call last):
+    Exception: There are duplicates in the DB.
+
+5. Test for method search_node. 
+Dsecription
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.search_node(1, ['name'], ['Shewanella woodyi ATCC 51908'])
+    Traceback (most recent call last):
+    ValueError: Label argument must be string.
+    >>> organism.search_node('Organism', 1, ['Shewanella woodyi ATCC 51908'])
+    Traceback (most recent call last):
+    ValueError: Keys argument must be list.
+    >>> organism.search_node('Organism', ['name'], 1)
+    Traceback (most recent call last):
+    ValueError: Values argument must be list.
+    >>> organism.search_node('Organism', ['name'], 1)
+    Traceback (most recent call last):
+    ValueError: Values argument must be list.
+    >>> organism.search_node('Organism', ['name','length'], ['Shewanella woodyi ATCC 51908'])
+    Traceback (most recent call last):
+    TypeError: The lengths of keys and values must be the same.
+
+6. Test for method create_or_update_ccp.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> org_node = organism.search_node('Organism', ['name'], ['Aliivibrio salmonicida LFI1238'])[0][0]
+    >>> organism.organism_list[0] = org_node
+    >>> organism.create_or_update_ccp()
+    >>> session = gb.cypher.Session(connection.db_link)
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (o:Organism)<-[r:PART_OF]-(:Chromosome) WHERE o.name = "Aliivibrio salmonicida LFI1238" RETURN r'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()[0][0][0]
+    >>> print transaction_out
+    (0)-[:PART_OF]->(6)
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (o:Organism)<-[r:PART_OF]-(:Chromosome) WHERE o.name = "Aliivibrio salmonicida LFI1238" DELETE r'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()
+    >>> organism = gb.GenBank(gb_file_ali, connection)
+    >>> org_node = organism.search_node('Organism', ['name'], ['Aliivibrio salmonicida LFI1238'])[0][0]
+    >>> organism.organism_list[0] = org_node
+    >>> organism.create_or_update_ccp()
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (o:Organism)<-[r1:PART_OF]-(c:Chromosome)-[r2:EVIDENCE]->(x:XRef) WHERE c.name = "Aliivibrio salmonicida LFI1238 chromosome 2 complete genome." RETURN r1,r2'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()[0][0][0]
+    >>> print transaction_out
+    (10)-[:PART_OF]->(6)
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (o:Organism)<-[r1:PART_OF]-(c:Chromosome)-[r2:EVIDENCE]->(x:XRef) WHERE c.name = "Aliivibrio salmonicida LFI1238 chromosome 2 complete genome." DELETE r1,r2'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()
+    >>> organism.create_or_update_ccp()
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (x:XRef {id:"FM178380"})<-[r1]-(c:Chromosome)-[r2]->() RETURN r1, c'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()[0][0][0]
+    >>> print transaction_out
+    (10)-[:LINK_TO]->(11)
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (x:XRef {id:"FM178380"})<-[r1]-(c:Chromosome)-[r2]->() DELETE r1,r2,x,c'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()
+
+7. Test for method search_gene_pattern.
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.organism_list[2] = 1
+    >>> organism.ccp_list[2] = 0
+    >>> organism.search_gene_pattern(397, 1785, 'forward')
+    [Record(columns=(u'g',), values=(Node('http://localhost:8484/db/data/node/3'),))]
+    
+8. Test for method make_gene_and_product.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.search_pattern_cypher()
+    >>> organism.make_gene_and_product(3)
+    >>> len(organism.external_sources)
+    3
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH ()-[r1:PART_OF]-(p:Polypeptide)-[r2:ENCODES]-() where p.name="DNA polymerase III, beta subunit" DELETE  r1,r2'
+    >>> transaction.append(query)
+    >>> transaction.commit()    
+    [[]]
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (t)-[r1:HAS_NAME]-(p:Polypeptide)-[r2:EVIDENCE]-(n1)-[r3:LINK_TO]-(n2) where p.name="DNA polymerase III, beta subunit" DELETE  r1,r2,r3,n1,n2,p,t'    
+    >>> transaction.append(query)
+    >>> transaction.commit()
+    [[]]
+
+9. Test for make_non_gene.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.search_pattern_cypher()
+    >>> organism.make_non_gene(organism.rec.features[7])
+    >>> session = gb.cypher.Session(connection.db_link)
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (me:Mobile_element) RETURN me'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()[0][0]
+    >>> me = transaction_out[0]
+    >>> props_me = me.get_properties()
+    >>> print (props_me['start'], props_me['end'], props_me['strand'])
+    (71527, 72834, u'reverse')
+    >>> organism.make_non_gene(organism.rec.features[8])
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (ro:Rep_origin)-[:EVIDENCE]->(x) RETURN ro, x'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()[0][0]
+    >>> ro = transaction_out[0]
+    >>> props_ro = ro.get_properties()
+    >>> print (props_ro['start'], props_ro['end'], props_ro['strand'])
+    (3925744, 3925975, u'forward')
+    >>> x = transaction_out[1]
+    >>> props_x = x.get_properties()
+    >>> print props_x['id']
+    ABE-0012233
+    >>> transaction = session.create_transaction()
+    >>> query = 'MATCH (mo:Mobile_element)-[r]->() DELETE mo, r'
+    >>> transaction.append(query)
+    >>> query = 'MATCH ()<-[p:PART_OF]-(ro:Rep_origin)-[e:EVIDENCE]->(x)-[l:LINK_TO]->(db) DELETE p, e, l, ro, x, db'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()
+    
+11. Test for make_next_relation.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> organism = gb.GenBank(gb_file_chl, connection)
+    >>> organism.make_next_relation(1)
+    Traceback (most recent call last):
+    ValueError: type_of_node must be string.
+    >>> organism.make_next_relation('Feature')
+    Traceback (most recent call last):
+    UserWarning: There is no organism "Chlamydia trachomatis A2497" in the base or there is no features connected to this organism. First do organism.upload before doing organism.make_next_relation.
+    >>> organism = gb.GenBank(gb_file_shw, connection)
+    >>> organism.search_pattern_cypher()
+    >>> organism.make_next_relation('Foo')
+    Traceback (most recent call last):
+    ValueError: Label "Foo" is not found in base.
+    >>> organism.make_next_relation('XRef')
+    Traceback (most recent call last):
+    ValueError: Label "XRef" has not got properties start, end and strand.

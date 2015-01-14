@@ -141,44 +141,7 @@ class MakeJob():
             print log_message
             return False
 
-# def compile(xml_file, fasta_file, file_quantity):
-#     """
-#     Method reads obtained xml-files and FASTA-files to write final result into txt-file.
-#     xml_file and fasta_file must have similar name.
-#     """
-#     #Open xml-file for reading
-#     out = open(xml_file + '_parsed' +'.txt', 'w')
-#     gi_file = open(fasta_file + '_gi.txt', 'w')
-#     #Read files
-#     for i in xrange(file_quantity):
-#         current_file = open(xml_file + '_part' + str(i) + '.xml', 'r')
-#         initial_file = open(fasta_file + '_part' + str(i) + '.FASTA', 'r')
-#         blast_read = NCBIXML.parse(current_file)
-#         #Read result for each protein.
-#         for reads in blast_read:
-#             header = initial_file.readline()[1:]
-#             seq = initial_file.readline()
-#             out_str = '@\t%s\t%s' % (header, seq)
-#             out.write(out_str)
-#             #Read each alignment for protein
-#             for alignment in reads.alignments:
-#                 #Write result if it satisfies 2 conditions
-#                 if alignment.hsps[0].identities/float(alignment.length) >= 0.7 and\
-#                                 alignment.length >= round(0.5*len(seq)):
-#                     out_str = '%.2f\t%s\t%s\n' \
-#                          % (alignment.hsps[0].identities/float(alignment.length),
-#                             alignment.title,
-#                             alignment.hsps[0].sbjct)
-#                     out.write(out_str)
-#                     #write protein gi to a file
-#                     out_str = '%s\n' % (alignment.hit_id.split('|')[1])
-#                     gi_file.write(out_str)
-#         current_file.close()
-#         initial_file.close()
-#     out.close()
-#     gi_file.close()
-
-def compile_multiple_strings(xml_file, fasta_file, file_quantity):
+def compile(xml_file, fasta_file, file_quantity):
     """
     Method reads obtained xml-files and FASTA-files to write final result into txt-file.
     xml_file and fasta_file must have similar name.

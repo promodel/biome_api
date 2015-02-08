@@ -565,11 +565,12 @@ class Reaction(Node):
     """
     An object of class Reaction. It inherits all methods from the Node class.
     """
-    def __init__(self, formula, uid=None, type=None):
+    def __init__(self, formula, uid=None, type=None, reversibility='Unknown'):
         Node.__init__(self)
         self.formula = formula
         self.uid = uid
         self.type = type
+        self.reversibility = reversibility
 
 ###############################################################################
 

@@ -719,6 +719,22 @@ class _DatObject():
                                 " + ".join(right))
         return formula
 
+    def make_reversibility(self):
+        if hasattr(self, "REACTION_DIRECTION"):
+            if self.REACTION_DIRECTION == "LEFT-TO-RIGHT" or \
+                            self.REACTION_DIRECTION == "PHYSIOL-LEFT-TO-RIGHT":
+                direction = "Left-to-Right"
+            elif self.REACTION_DIRECTION == "RIGHT-TO-LEFT" or \
+                            self.REACTION_DIRECTION == "PHYSIOL-RIGHT-TO-LEFT":
+                direction = "Right-to-Left"
+            elif self.REACTION_DIRECTION == "REVERSIBLE":
+                direction = "Reversible"
+            else:
+                direction = "Unknown"
+        else:
+            direction = "Unknown"
+        return direction
+
     def links_to_reactants(self, node, metacyc):
         """
         The method is looking for reaction reactants in MetaCyc object nodes.
@@ -2096,8 +2112,10 @@ class MetaCyc():
                 # constructing the reaction formula
                 if hasattr(obj, "LEFT") and hasattr(obj, "RIGHT"):
                     formula = obj.make_formula()
+                    reversibility = obj.make_reversibility()
                     reaction = Reaction(uid=uid, type=obj.attr_check("TYPES"),
-                                        formula=formula)
+                                        formula=formula,
+                                        reversibility=reversibility)
                     self.reactions.append(reaction)
 
                     # creating edges to enzymes catalyzing the reaction

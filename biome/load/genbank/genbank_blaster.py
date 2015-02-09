@@ -122,8 +122,8 @@ class MakeJob():
                 poly_counter = 0
                 for result in transaction_out:
                     try:
-                        poly_str = node2link(result[0])
-                        poly_str += '\t%s\t%d:%d:%s\n' % (result[1], result[2], result[3], node2link(result[4]))
+                        # Write poly-id, seq, start, end, ccp-id
+                        poly_str = '%s\t%s\t%d:%d:%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]))
                         polypeptides_file.write(poly_str)
                         poly_counter += 1
                     except:

@@ -218,11 +218,12 @@ class XRef(Node):
     """
     An object of class XRef. It inherits all methods from the Node class.
     """
-    def __init__(self, id):
+    def __init__(self, id, db_id):
         if not isinstance(id, basestring):
             raise TypeError('The id argument must be a string!')
         Node.__init__(self)
         self.id = id
+        self.db_id = db_id
         self.source = None
 
 ###############################################################################

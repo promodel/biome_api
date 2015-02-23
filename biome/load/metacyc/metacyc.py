@@ -267,7 +267,8 @@ class _DatObject():
             if isinstance(metacyc, MetaCyc):
                 try:
                     for dblink in self.DBLINKS:
-                        xref = XRef(dblink["id"])
+                        db_id = '%s_%s' % (dblink["id"], dblink["DB"])
+                        xref = XRef(id=dblink["id"], db_id=db_id)
 
                         # checking if there already exist a node with
                         # the same id
@@ -1056,7 +1057,8 @@ class MetaCyc():
                     CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
                 # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
-                refseq = XRef(id=record.locus)
+                db_id = '%s_GenBank' % record.locus
+                refseq = XRef(id=record.locus, db_id=db_id)
                 self.xrefs.append(refseq)
                 self.edges.append(
                     CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
@@ -1106,7 +1108,8 @@ class MetaCyc():
 
                 # creating edges
                 # [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
-                refseq = XRef(id=refseq_id)
+                db_id = '%s_GenBank' %refseq_id
+                refseq = XRef(id=refseq_id, db_id=db_id)
                 self.xrefs.append(refseq)
                 self.edges.append(CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
                 gb = self.db_checker('GenBank')
@@ -1368,7 +1371,8 @@ class MetaCyc():
 
                     # creating links to Uniprot
                     # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB:Uniprot)
-                    xref = XRef(chunks[1])
+                    db_id = '%s_UniProt' % chunks[1]
+                    xref = XRef(id=chunks[1], db_id=db_id)
                     self.xrefs.append(xref)
                     self.edges.append(CreateEdge(gene[0], xref, 'EVIDENCE'))
                     db_obj = self.db_checker("UniProt")
@@ -1775,7 +1779,8 @@ class MetaCyc():
                 if hasattr(obj, 'GO_TERMS'):
                     for goterm in obj.GO_TERMS.split('; '):
                         goterm = goterm.replace('|', '')
-                        xref = XRef(goterm)
+                        db_id = '%s_GO' % goterm
+                        xref = XRef(id=goterm, db_id=db_id)
                         self.xrefs.append(xref)
                         self.edges.append(
                             CreateEdge(peptide, xref, 'EVIDENCE'))
@@ -1835,7 +1840,8 @@ class MetaCyc():
                 if hasattr(obj, 'GO_TERMS'):
                     for goterm in obj.GO_TERMS.split('; '):
                         goterm = goterm.replace('|', '')
-                        xref = XRef(goterm)
+                        db_id = '%s_GO' % goterm
+                        xref = XRef(id=goterm, db_id=db_id)
                         self.xrefs.append(xref)
                         self.edges.append(
                             CreateEdge(complex_obj, xref, 'EVIDENCE'))
@@ -2132,7 +2138,8 @@ class MetaCyc():
                     # creating edges to EC numbers
                     if hasattr(obj, 'EC_NUMBER'):
                         for ecnum in obj.EC_NUMBER.split('; '):
-                            xref = XRef(ecnum)
+                            db_id = '%s_ExPASy-ENZYME' % ecnum
+                            xref = XRef(id=ecnum, db_id=db_id)
                             self.xrefs.append(xref)
                             self.edges.append(CreateEdge(reaction, xref, 'EVIDENCE'))
                             db_obj = self.db_checker("ExPASy-ENZYME")

@@ -95,6 +95,7 @@ class BlastUploader():
         # Create a batch
         batch = neo4j.WriteBatch(self.data_base)
 
+        batch_counter = 0
         # Read file line by line
         for line in file_read:
             # Distinguish line
@@ -144,9 +145,12 @@ class BlastUploader():
                             batch.create(rel(b_poly, 'SIMILAR', poly))
                     else:
                         # If does not match log an error
-                        log_message = 'Sequence if the found polypeptide to the one existing in the data base' \
+                        log_message = 'Sequence of the found polypeptide does not match to the one existing in the data base ' \
                                       'ref:%s, seq:%s' % (target_ref, target_seq)
                         print log_message
                         self._logger.error(log_message)
-
+            batch_counter += 1
+            if batch_counter == 500:
+                batch.submit()
+                batch = neo4j.WriteBatch(self.data_base)
         batch.submit()

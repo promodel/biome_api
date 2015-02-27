@@ -5,6 +5,7 @@ from Bio.Blast import NCBIWWW, NCBIXML
 from time import time
 from py2neo import neo4j, node, rel, cypher
 import warnings
+import re
 
 class MakeJob():
     def __init__(self, db_link = 'http://localhost:8484/db/data/', e_value=0.00001, logger_level=logging.INFO):
@@ -29,6 +30,8 @@ class MakeJob():
 
         #Set the name of the file with non-BLASTed  proteins.
         self._blast_input_txt = organism + '_input_blast'
+        self._blast_input_txt = re.sub('[!@#$/]', '', self._blast_input_txt)
+        self.filename = re.sub('[!@#$/]', '', self.filename)
         self.filename = self._blast_input_txt + '.txt'
 
         #Set current organism
@@ -51,8 +54,8 @@ class MakeJob():
                 try:
                     for line_ind in xrange(line_number, average_quantity):
                             #print line_ind
-                            header, sequence, tail = lines[line_ind].split('\t')
-                            new_file.write('>' + header + '\t' + tail + sequence + '\n')
+                            header, sequence, tail, org = lines[line_ind].split('\t')
+                            new_file.write('>' + header + '\t' + tail + '\t' + org + sequence + '\n')
                     line_number = average_quantity
                     average_quantity += init_average_quantity
                 except:
@@ -99,17 +102,8 @@ class MakeJob():
         if not os.path.isfile(self._blast_input_txt + '.txt'):
 
             #Find non-BLASTed polypeptides polypeptides for current organism
-            transaction = session.create_transaction()
-            query = 'MATCH (o:Organism)<-[:PART_OF]-(p:Polypeptide)<-[:ENCODES]-(g:Gene)-[:PART_OF]->(ccp) ' \
-                    'WHERE NOT((p)-[:SIMILAR]-(:Polypeptide)) ' \
-                    'AND o.name="%s" ' \
-                    'AND HAS(p.seq) AND ' \
-                    '(ccp)-[:PART_OF]->(o) ' \
-                    'RETURN distinct p, p.seq, g.start, g.end, ccp' % organism
-            transaction.append(query)
-            log_message = 'Searching query: ' + query
-            self._logger.info(log_message)
-            transaction_out = transaction.commit()[0]
+            transaction_out = self._find_non_blasted_proteins_with_taxon(organism)
+            # transaction_out = self._find_non_blasted_proteins(organism)
             if not transaction_out:
                 log_message = 'Nothing was found on your query: %s' % query
                 self._logger.warning(log_message)
@@ -123,7 +117,8 @@ class MakeJob():
                 for result in transaction_out:
                     try:
                         # Write poly-id, seq, start, end, ccp-id
-                        poly_str = '%s\t%s\t%d:%d:%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]))
+                        poly_str = '%s\t%s\t%d:%d:%s\t%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]), result[5])
+                        # poly_str = '%s\t%s\t%d:%d:%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]))
                         polypeptides_file.write(poly_str)
                         poly_counter += 1
                     except:
@@ -141,6 +136,33 @@ class MakeJob():
             print log_message
             return False
 
+    def _find_non_blasted_proteins(self, organism):
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (o:Organism)<-[:PART_OF]-(p:Polypeptide)<-[:ENCODES]-(g:Gene)-[:PART_OF]->(ccp) ' \
+                'WHERE NOT((p)-[:SIMILAR]-(:Polypeptide)) ' \
+                'AND o.name="%s" ' \
+                'AND HAS(p.seq) AND ' \
+                '(ccp)-[:PART_OF]->(o) ' \
+                'RETURN distinct p, p.seq, g.start, g.end, ccp' % organism
+        transaction.append(query)
+        log_message = 'Searching query: ' + query
+        self._logger.info(log_message)
+        return transaction.commit()[0]
+
+    def _find_non_blasted_proteins_with_taxon(self, organism):
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (t:Taxon)<-[:IS_A]-(o:Organism)<-[:PART_OF]-(p:Polypeptide)<-[:ENCODES]-(g:Gene)-[:PART_OF]->(ccp) ' \
+                'WHERE NOT((p)-[:SIMILAR]-(:Polypeptide)) ' \
+                'AND o.name="%s" ' \
+                'AND HAS(p.seq) AND ' \
+                '(ccp)-[:PART_OF]->(o) ' \
+                'RETURN distinct p, p.seq, g.start, g.end, ccp, t.scientific_name' % organism
+        transaction.append(query)
+        log_message = 'Searching query: ' + query
+        self._logger.info(log_message)
+        return transaction.commit()[0]
 
 def compile_blast_result(xml_file, fasta_file, file_quantity):
     """
@@ -243,6 +265,26 @@ class BlastUploader():
         for key, value in zip(keys, values):
             query += 'node.%s="%s" AND ' % (key, value)
         query = query[:-4] + 'RETURN node'
+        transaction.append(query)
+        node = transaction.commit()
+        try:
+            return list(node[0][0])
+        except:
+            return []
+
+    def find_nodes_by_labels_and_properties(self, labels, properties={}):
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = ''
+        for label in labels:
+            query = ':' + label
+        query = 'MATCH (node' + query + ') '
+        if len(properties):
+            query += 'WHERE '
+            for property in properties.keys():
+                query += 'node.%s="%s" AND ' % (property, properties[property])
+        query = query[:-4] + 'RETURN node'
+        print query
         transaction.append(query)
         node = transaction.commit()
         try:

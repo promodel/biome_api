@@ -1755,7 +1755,7 @@ class MetaCyc():
                                           name=obj.attr_check("COMMON_NAME", uid))
                     setattr(peptide, 'molecular_weight_kd',
                             obj.attr_check("MOLECULAR_WEIGHT_KD"))
-                    peptide.labels = '%s:To_check' %peptide.labels
+                    peptide.labels = '%s:To_check' % peptide.labels
                     self.other_nodes.append(peptide)
                     unknown +=1
 

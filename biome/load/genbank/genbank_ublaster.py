@@ -95,62 +95,62 @@ class BlastUploader():
         # Create a batch
         batch = neo4j.WriteBatch(self.data_base)
 
-        batch_counter = 0
         # Read file line by line
         for line in file_read:
             # Distinguish line
-            poly_id, poly_info, identity, target_seq, target_ref, query_seq = self._line_distinguisher_usearch(line)
+            if not len(line) > 4096:
+                poly_id, poly_info, identity, target_seq, target_ref, query_seq = self._line_distinguisher_usearch(line)
 
-            # Find poly to attach his homologs
-            poly = self._find_poly_by_id_and_check_seq(poly_id, query_seq)
+                # Find poly to attach his homologs
+                poly = self._find_poly_by_id_and_check_seq(poly_id, query_seq)
 
-            # If there is no poly, log an error
-            if not poly:
-                g_start, g_end, ccp = poly_info.split(':')
-                log_message = 'Nothing was found by id:%s or sequence:%s ' \
-                              'additional info gene_start:%s, gene_end:%s, in ccp:%s' %\
-                              (poly_id, query_seq, g_start, g_end, ccp)
-                print log_message
-                warnings.warn(log_message)
-                self._logger.error(log_message)
-            else:
-                # Create cypher session to search pattern
-                session = cypher.Session(self.db_link)
-                transaction = session.create_transaction()
-                query = 'MATCH (p:Polypeptide)--(x:XRef)--(db:DB) ' \
-                        'WHERE db.name="%s" ' \
-                        'AND x.id="%s"' \
-                        'RETURN p' % ('UniProt', target_ref)
-                transaction.append(query)
-                transaction_out = transaction.commit()[0]
-                if not transaction_out:
-                    # If there is no such pattern, create it
-                    ref = batch.create(node({'id': target_ref}))
-                    batch.add_labels(ref, 'XRef')
-                    b_poly = batch.create(node({'seq': target_seq}))
-                    batch.add_labels(b_poly, 'Polypeptide', 'BioEntity')
-                    batch.create(rel(ref, 'LINK_TO', sp_node))
-                    batch.create(rel(b_poly, 'EVIDENCE', ref))
-                    batch.create(rel(b_poly, 'SIMILAR', poly))
+                # If there is no poly, log an error
+                if not poly:
+                    g_start, g_end, ccp = poly_info.split(':')
+                    log_message = 'Nothing was found by id:%s or sequence:%s ' \
+                                  'additional info gene_start:%s, gene_end:%s, in ccp:%s' %\
+                                  (poly_id, query_seq, g_start, g_end, ccp)
+                    print log_message
+                    warnings.warn(log_message)
+                    self._logger.error(log_message)
                 else:
-                    # If there is a pattern get the sequence of the found poly
-                    b_poly = transaction_out[0][0]
-                    poly_seq = b_poly.get_properties()['seq']
-
-                    # Compare poly's sequence and the file sequence
-                    if poly_seq == target_seq:
-                        rels = list(self.data_base.match(start_node=b_poly, end_node=poly))
-                        if not rels:
-                            # If matches, create 'SIMILAR' edge
-                            batch.create(rel(b_poly, 'SIMILAR', poly))
+                    # Create cypher session to search pattern
+                    session = cypher.Session(self.db_link)
+                    transaction = session.create_transaction()
+                    query = 'MATCH (p:Polypeptide)--(x:XRef)--(db:DB) ' \
+                            'WHERE db.name="%s" ' \
+                            'AND x.id="%s"' \
+                            'RETURN p' % ('UniProt', target_ref)
+                    transaction.append(query)
+                    transaction_out = transaction.commit()[0]
+                    if not transaction_out:
+                        # If there is no such pattern, create it
+                        ref = batch.create(node({'id': target_ref}))
+                        batch.add_labels(ref, 'XRef')
+                        b_poly = batch.create(node({'seq': target_seq}))
+                        batch.add_labels(b_poly, 'Polypeptide', 'BioEntity')
+                        batch.create(rel(ref, 'LINK_TO', sp_node))
+                        batch.create(rel(b_poly, 'EVIDENCE', ref))
+                        batch.create(rel(b_poly, 'SIMILAR', poly))
                     else:
-                        # If does not match log an error
-                        log_message = 'Sequence of the found polypeptide does not match to the one existing in the data base ' \
-                                      'ref:%s, seq:%s' % (target_ref, target_seq)
-                        print log_message
-                        self._logger.error(log_message)
-            batch_counter += 1
-            if batch_counter == 500:
-                batch.submit()
-                batch = neo4j.WriteBatch(self.data_base)
+                        # If there is a pattern get the sequence of the found poly
+                        b_poly = transaction_out[0][0]
+                        poly_seq = b_poly.get_properties()['seq']
+
+                        # Compare poly's sequence and the file sequence
+                        if poly_seq == target_seq:
+                            rels = list(self.data_base.match(start_node=b_poly, end_node=poly))
+                            if not rels:
+                                # If matches, create 'SIMILAR' edge
+                                batch.create(rel(b_poly, 'SIMILAR', poly))
+                        else:
+                            # If does not match log an error
+                            log_message = 'Sequence of the found polypeptide does not match to the one existing in the data base ' \
+                                          'ref:%s, seq:%s' % (target_ref, target_seq)
+                            print log_message
+                            self._logger.error(log_message)
+            else:
+                log_message = 'Too long string! String number:%d' % (file_read.index(line))
+                self._logger.error(log_message)
+                warnings.warn(log_message)
         batch.submit()

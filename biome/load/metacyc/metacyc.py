@@ -1759,7 +1759,7 @@ class MetaCyc():
                     self.other_nodes.append(peptide)
                     unknown +=1
 
-                #  creating a Term for the Compound name
+                #  creating a Term for the peptide name
                 # (Peptide) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(peptide)
                 

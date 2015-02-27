@@ -79,7 +79,7 @@ class BlastUploader():
             return []
 
     def _line_distinguisher_usearch(self, line):
-        poly_id, poly_info, identity, target_seq, target_ref = line.split('\t')[:5]
+        poly_id, poly_info, query_org, identity, target_seq, target_ref = line.split('\t')[:6]
         query_seq = line.split('\t')[-1]
         return poly_id, poly_info, identity, target_seq.upper(), target_ref, query_seq.upper()
 

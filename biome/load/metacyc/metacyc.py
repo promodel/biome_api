@@ -267,7 +267,8 @@ class _DatObject():
             if isinstance(metacyc, MetaCyc):
                 try:
                     for dblink in self.DBLINKS:
-                        xref = XRef(dblink["id"])
+                        db_id = '%s_%s' % (dblink["id"], dblink["DB"])
+                        xref = XRef(id=dblink["id"], db_id=db_id)
 
                         # checking if there already exist a node with
                         # the same id
@@ -719,6 +720,22 @@ class _DatObject():
                                 " + ".join(right))
         return formula
 
+    def make_reversibility(self):
+        if hasattr(self, "REACTION_DIRECTION"):
+            if self.REACTION_DIRECTION == "LEFT-TO-RIGHT" or \
+                            self.REACTION_DIRECTION == "PHYSIOL-LEFT-TO-RIGHT":
+                direction = "Left-to-Right"
+            elif self.REACTION_DIRECTION == "RIGHT-TO-LEFT" or \
+                            self.REACTION_DIRECTION == "PHYSIOL-RIGHT-TO-LEFT":
+                direction = "Right-to-Left"
+            elif self.REACTION_DIRECTION == "REVERSIBLE":
+                direction = "Reversible"
+            else:
+                direction = "Unknown"
+        else:
+            direction = "Unknown"
+        return direction
+
     def links_to_reactants(self, node, metacyc):
         """
         The method is looking for reaction reactants in MetaCyc object nodes.
@@ -1040,7 +1057,8 @@ class MetaCyc():
                     CreateEdge(ccp_obj, self.organism, 'PART_OF'))
 
                 # creating edges [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
-                refseq = XRef(id=record.locus)
+                db_id = '%s_GenBank' % record.locus
+                refseq = XRef(id=record.locus, db_id=db_id)
                 self.xrefs.append(refseq)
                 self.edges.append(
                     CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
@@ -1090,7 +1108,8 @@ class MetaCyc():
 
                 # creating edges
                 # [CCP]-[:EVIDENCE]->(XRef)-[:LINK_TO]->(DB=GenBank)
-                refseq = XRef(id=refseq_id)
+                db_id = '%s_GenBank' %refseq_id
+                refseq = XRef(id=refseq_id, db_id=db_id)
                 self.xrefs.append(refseq)
                 self.edges.append(CreateEdge(ccp_obj, refseq, 'EVIDENCE'))
                 gb = self.db_checker('GenBank')
@@ -1352,7 +1371,8 @@ class MetaCyc():
 
                     # creating links to Uniprot
                     # (Gene) -[:EVIDENCE]-> (XRef) -[:LINK_TO]-> (DB:Uniprot)
-                    xref = XRef(chunks[1])
+                    db_id = '%s_UniProt' % chunks[1]
+                    xref = XRef(id=chunks[1], db_id=db_id)
                     self.xrefs.append(xref)
                     self.edges.append(CreateEdge(gene[0], xref, 'EVIDENCE'))
                     db_obj = self.db_checker("UniProt")
@@ -1735,11 +1755,11 @@ class MetaCyc():
                                           name=obj.attr_check("COMMON_NAME", uid))
                     setattr(peptide, 'molecular_weight_kd',
                             obj.attr_check("MOLECULAR_WEIGHT_KD"))
-                    peptide.labels = '%s:To_check' %peptide.labels
+                    peptide.labels = '%s:To_check' % peptide.labels
                     self.other_nodes.append(peptide)
                     unknown +=1
 
-                #  creating a Term for the Compound name
+                #  creating a Term for the peptide name
                 # (Peptide) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(peptide)
                 
@@ -1759,7 +1779,8 @@ class MetaCyc():
                 if hasattr(obj, 'GO_TERMS'):
                     for goterm in obj.GO_TERMS.split('; '):
                         goterm = goterm.replace('|', '')
-                        xref = XRef(goterm)
+                        db_id = '%s_GO' % goterm
+                        xref = XRef(id=goterm, db_id=db_id)
                         self.xrefs.append(xref)
                         self.edges.append(
                             CreateEdge(peptide, xref, 'EVIDENCE'))
@@ -1819,7 +1840,8 @@ class MetaCyc():
                 if hasattr(obj, 'GO_TERMS'):
                     for goterm in obj.GO_TERMS.split('; '):
                         goterm = goterm.replace('|', '')
-                        xref = XRef(goterm)
+                        db_id = '%s_GO' % goterm
+                        xref = XRef(id=goterm, db_id=db_id)
                         self.xrefs.append(xref)
                         self.edges.append(
                             CreateEdge(complex_obj, xref, 'EVIDENCE'))
@@ -2096,8 +2118,10 @@ class MetaCyc():
                 # constructing the reaction formula
                 if hasattr(obj, "LEFT") and hasattr(obj, "RIGHT"):
                     formula = obj.make_formula()
+                    reversibility = obj.make_reversibility()
                     reaction = Reaction(uid=uid, type=obj.attr_check("TYPES"),
-                                        formula=formula)
+                                        formula=formula,
+                                        reversibility=reversibility)
                     self.reactions.append(reaction)
 
                     # creating edges to enzymes catalyzing the reaction
@@ -2114,7 +2138,8 @@ class MetaCyc():
                     # creating edges to EC numbers
                     if hasattr(obj, 'EC_NUMBER'):
                         for ecnum in obj.EC_NUMBER.split('; '):
-                            xref = XRef(ecnum)
+                            db_id = '%s_ExPASy-ENZYME' % ecnum
+                            xref = XRef(id=ecnum, db_id=db_id)
                             self.xrefs.append(xref)
                             self.edges.append(CreateEdge(reaction, xref, 'EVIDENCE'))
                             db_obj = self.db_checker("ExPASy-ENZYME")

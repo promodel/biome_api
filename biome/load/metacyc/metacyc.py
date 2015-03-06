@@ -1829,7 +1829,7 @@ class MetaCyc():
                 if hasattr(obj, "COMPONENTS"):
                     db_objects = self.rnas + self.compounds + \
                                  self.oligopeptides + self.polypeptides + \
-                                 self.complexes
+                                 self.complexes + self.other_nodes
 
                     comps = obj.COMPONENTS
 
@@ -1905,7 +1905,8 @@ class MetaCyc():
             i = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
-                if "Sigma-Factors" in obj.TYPES.split('; '):
+                if "Sigma-Factors" in obj.TYPES.split('; ') or \
+                                'sigma' in obj.attr_check("COMMON_NAME"):
                     if hasattr(obj, "SYNONYMS"):
                         name = [s for s in obj.SYNONYMS.split('; ')
                                 if s[:3] == 'Sig']

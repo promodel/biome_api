@@ -1279,7 +1279,7 @@ class MetaCyc():
                         continue
 
                     location = self._location(
-                            obj.attr_check("LEFT_END_POSITION"), 
+                            obj.attr_check("LEFT_END_POSITION"),
                             obj.attr_check("RIGHT_END_POSITION"),
                             obj.attr_check("TRANSCRIPTION_DIRECTION"))
                     gene = Gene(uid=uid,
@@ -1762,7 +1762,7 @@ class MetaCyc():
                 #  creating a Term for the peptide name
                 # (Peptide) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(peptide)
-                
+
                 # creating Terms for peptide name synonyms
                 # (Peptide) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(peptide, self)
@@ -1927,8 +1927,7 @@ class MetaCyc():
             i = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
-                if "Sigma-Factors" in obj.TYPES.split('; ') or \
-                                'sigma' in obj.attr_check("COMMON_NAME"):
+                if "Sigma-Factors" in obj.TYPES.split('; ') or "sigma" in obj.attr_check("COMMON_NAME"):
                     if hasattr(obj, "SYNONYMS"):
                         name = [s for s in obj.SYNONYMS.split('; ')
                                 if s[:3] == 'Sig']
@@ -1959,11 +1958,12 @@ class MetaCyc():
                     # creating edges to promoters
                     if hasattr(obj, "RECOGNIZED_PROMOTERS"):
                         for uid in obj.RECOGNIZED_PROMOTERS.split('; '):
-                            pro = [p for p in self.promoters if p.uid == uid]
+                            pros = [p for p in self.promoters if p.uid == uid]
                             if len(pro) == 0:
                                 continue
-                            self.edges.append(
-                                CreateEdge(sigma, pro, 'RECOGNIZES'))
+                            for pro in pros:
+                                self.edges.append(
+                                    CreateEdge(sigma, pro, 'RECOGNIZES'))
 
                     i += 1
             print "%d Sigma-factors have been created!" % i
@@ -2174,8 +2174,8 @@ class MetaCyc():
 
                 # creating edges to reaction name synonyms
                 # (Pathway) -[:HAS_NAME]-> (Term)
-                self.name_to_terms(pathway)                
-               
+                self.name_to_terms(pathway)
+
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
                 obj.links_to_reactions(pathway, self)
@@ -2198,7 +2198,7 @@ class MetaCyc():
 
                 # creating edges to reaction name synonyms
                 # (Pathway) -[:HAS_NAME]-> (Term)
-                self.name_to_terms(pathway) 
+                self.name_to_terms(pathway)
 
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
@@ -2208,7 +2208,7 @@ class MetaCyc():
                 # creating Terms for pathway name synonyms
                 # (Pathway) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(pathway, self)
-                
+
             print "A list with %d pathways has been " \
                   "created!" % len(self.pathways)
 

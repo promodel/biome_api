@@ -1959,7 +1959,7 @@ class MetaCyc():
                     if hasattr(obj, "RECOGNIZED_PROMOTERS"):
                         for uid in obj.RECOGNIZED_PROMOTERS.split('; '):
                             pros = [p for p in self.promoters if p.uid == uid]
-                            if len(pro) == 0:
+                            if len(pros) == 0:
                                 continue
                             for pro in pros:
                                 self.edges.append(

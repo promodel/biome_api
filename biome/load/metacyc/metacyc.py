@@ -1999,7 +1999,6 @@ class MetaCyc():
                                        self.other_nodes) if p.uid == obj.ENZYME]
 
                 if len(protein) == 0:
-                    print obj.ENZYME
                     continue
 
                 self.edges.append(CreateEdge(protein[0], enzyme, 'IS_A'))

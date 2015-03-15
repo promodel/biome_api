@@ -1949,8 +1949,8 @@ class MetaCyc():
                     obj.links_to_organism(sigma, self)
 
                     # creating an edge to a poplypetide/complex
-                    protein = [p for p in (self.polypeptides + self.complexes)
-                               if p.uid == uid]
+                    protein = [p for p in (self.polypeptides + self.complexes +
+                                           self.other_nodes) if p.uid == uid]
                     if len(protein) != 0:
                         self.edges.append(
                             CreateEdge(protein[0], sigma, 'IS_A'))
@@ -1995,10 +1995,11 @@ class MetaCyc():
                 obj.links_to_organism(enzyme, self)
 
                 # creating edge to a polypeptide or complex
-                protein = [p for p in (self.polypeptides + self.complexes)
-                           if p.uid == obj.ENZYME]
+                protein = [p for p in (self.polypeptides + self.complexes +
+                                       self.other_nodes) if p.uid == obj.ENZYME]
 
                 if len(protein) == 0:
+                    print obj.ENZYME
                     continue
 
                 self.edges.append(CreateEdge(protein[0], enzyme, 'IS_A'))

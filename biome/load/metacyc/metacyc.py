@@ -30,6 +30,23 @@ def make_name(name):
     """
     return re.sub("[!,.'<>\[\];*-/+()\"]", "_", name).replace(' ', '_').replace('?', '')
 
+def make_stoich(reagent, sign):
+    try:
+        num = int(re.match('\d+', reagent).group(0))
+    except:
+        num = 1
+
+    # if stoichiometric coefficient is equal to n
+    if reagent[:2] == 'n ':
+        num = 'n'
+
+    # making correct sign
+    if num == 'n' and sign == -1:
+        num = '-n'
+    else:
+        num = num*sign
+    return num
+
 ###############################################################################
 
 
@@ -623,14 +640,15 @@ class _DatObject():
             'CCO-CYTOSOL': ('Cytosol',),
             'CCO-PM-BAC-NEG': ('Periplasmic space', 'Cytosol')}
 
+        len_left = len(self.LEFT.split('; '))
         reactants = self.LEFT.split('; ') + self.RIGHT.split('; ')
 
         # if no data about compartments, the default compartment is
         # cytosol
         if not hasattr(self, 'RXN_LOCATIONS') and \
                 not hasattr(self, '^COMPARTMENT'):
-            return [('CCO-CYTOSOL', 'Cytosol', reactant)
-                    for reactant in reactants]
+            return [len_left, [('CCO-CYTOSOL', 'Cytosol', reactant)
+                    for reactant in reactants]]
 
         # if reaction substrates and products are located in one
         # compartment and the compartment is specified in the
@@ -639,11 +657,11 @@ class _DatObject():
                 not hasattr(self, '^COMPARTMENT'):
             if getattr(self, 'RXN_LOCATIONS') in cco.keys():
                 compartment = getattr(self, 'RXN_LOCATIONS')
-                return [(compartment, cco[compartment][0], reactant)
-                        for reactant in reactants]
+                return [len_left, [(compartment, cco[compartment][0], reactant)
+                        for reactant in reactants]]
             else:
-                return [('UNKNOWN', 'Unknown', reactant)
-                        for reactant in reactants]
+                return [len_left, [('UNKNOWN', 'Unknown', reactant)
+                        for reactant in reactants]]
 
         # if reaction substrates and products are located in different
         # compartments and the compartments are specified in the
@@ -662,7 +680,7 @@ class _DatObject():
                     res1 = [('UNKNOWN', 'Unknown', reactant)
                             for reactant in reactants]
                 res.extend(res1)
-            return res
+            return [len_left, res]
 
         # if reaction substrates and products are located in different
         # compartments and the compartments are specified in the
@@ -694,7 +712,7 @@ class _DatObject():
                             if reactant not in cco_in_out]
 
             res = res_in + res_out + res_unknowns
-            return res
+            return [len_left, res]
         else:
             raise Exception('Unexpected error in match_compartments!')
 
@@ -750,24 +768,16 @@ class _DatObject():
                           metacyc.other_nodes
                 groups = [rna for rna in metacyc.rnas if
                           rna.__class__.__name__ == 'tRNA'] + metacyc.compounds
-                comps = self.match_compartments()
+                len_left, comps = self.match_compartments()
 
-                for comp in comps:
+                stech_sign = [-1]*len_left + [1]*(len(comps)-len_left)
+
+                for comp, sign in zip(comps, stech_sign):
                     # separating reactant name and numerical stoichiometric
                     # coefficient
                     reagent = comp[2]
                     item = re.sub(r'\d\s', '', reagent)
-
-                    try:
-                        num = re.match('\d+', reagent).group(0)
-                    except:
-                        num = 1
-
-                    # if stoichiometric coefficient is equal to n
-                        if reagent[:2] == 'n ':
-                            substance = reagent[2:]
-                            num = 'n'
-
+                    num = make_stoich(reagent, sign)
                     reagents = [i for i in objects
                                        if i.uid == reagent or i.name == reagent]
 
@@ -790,6 +800,7 @@ class _DatObject():
                     for reagent in reagents:
                         compartment = [item for item in metacyc.compartments
                                        if item.name == comp[1]]
+
                         if len(compartment) == 0:
                             compartment = [item for item in metacyc.compartments
                                        if item.name == 'Unknown']

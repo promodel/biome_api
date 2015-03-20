@@ -685,17 +685,16 @@ class _DatObject():
 
             cco_in_out = []
             if hasattr(self, 'CCO_IN'):
-                cco_in_out.append(self.CCO_IN)
+                cco_in_out += self.CCO_IN.split('; ')
             if hasattr(self, 'CCO_OUT'):
-                cco_in_out.append(self.CCO_OUT)
+                cco_in_out += self.CCO_OUT.split('; ')
 
             res_unknowns = [('UNKNOWN', 'Unknown', reactant)
-                            for reactant in reactants
+                            for reactant in reactants \
                             if reactant not in cco_in_out]
 
             res = res_in + res_out + res_unknowns
             return res
-
         else:
             raise Exception('Unexpected error in match_compartments!')
 
@@ -771,7 +770,6 @@ class _DatObject():
 
                     reagents = [i for i in objects
                                        if i.uid == reagent or i.name == reagent]
-
 
                     # searching in names of object groups and classes
                     if len(reagents) == 0:

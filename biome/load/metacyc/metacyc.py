@@ -1251,35 +1251,32 @@ class MetaCyc():
         Data extraction from genes.col file. Only writing (no upgrading)
         is possible!
         """
-        try:
-            f = file(self.path + "genes.col", 'r')
-            data = f.readlines()
-            f.close()
-
+        data = self._read_col("genes.col")
+        if data is not None:
             # WRITING de novo
             if len(self.genes) == 0:
                 for line in data:
-                    if line[0] != '#' and line[:9] != 'UNIQUE-ID':
-                        chunks = line.replace('\n', '').split('\t')
+                    try:
+                        if line[0] != '#' and line[:9] != 'UNIQUE-ID':
+                            chunks = line.replace('\n', '').split('\t')
 
-                        # creating formatted coordinates for a gene
-                        location = self._location(
-                            int(chunks[5]), int(chunks[6]))
+                            # creating formatted coordinates for a gene
+                            location = self._location(
+                                int(chunks[5]), int(chunks[6]))
 
-                        gene = Gene(uid=chunks[0], name=chunks[1],
-                                    start=location[0], end=location[1],
-                                    strand=location[2], product=chunks[2])
-                        self.genes.append(gene)
-                        self.name_to_terms(gene)
+                            gene = Gene(uid=chunks[0], name=chunks[1],
+                                        start=location[0], end=location[1],
+                                        strand=location[2], product=chunks[2])
+                            self.genes.append(gene)
+                            self.name_to_terms(gene)
+                    except:
+                        pass
                 print "A list with %d genes has been " \
                       "created!" % len(self.genes)
 
             # UPGRADING
             else:
                 pass
-        except:
-            print "There is no genes.col file in the database or it has " \
-                  "wrong format! Let's skip it..."
 
     def genes_dat(self):
         """
@@ -2031,21 +2028,20 @@ class MetaCyc():
         """
         The method assignes subunit composition information to complexes.
         """
-        try:
-            f = file(self.path + "protcplxs.col", 'r')
-            data = f.readlines()
-            f.close()
+        data = self._read_col("protcplxs.col")
+        if data is not None:
             for line in data:
-                if line[0] == '#' or line[:3] == "UNI":
-                    continue
-                chunks = line.replace('\n', '').split('\t')
-                complex_obj = [c for c in self.complexes
-                               if c.uid == chunks[0]]
-                if len(complex_obj) == 0 or len(chunks[-1]) == 0:
-                    continue
-                setattr(complex_obj[0], "subunit_composition", chunks[-1])
-        except:
-            print "There is no protcplxs.col file! Let's skip it..."
+                try:
+                    if line[0] == '#' or line[:3] == "UNI":
+                        continue
+                    chunks = line.replace('\n', '').split('\t')
+                    complex_obj = [c for c in self.complexes
+                                   if c.uid == chunks[0]]
+                    if len(complex_obj) == 0 or len(chunks[-1]) == 0:
+                        continue
+                    setattr(complex_obj[0], "subunit_composition", chunks[-1])
+                except:
+                    pass
 
     def regulation_dat(self):
         """
@@ -2245,19 +2241,18 @@ class MetaCyc():
             print "There is no information about pathways in the MetaCyc " \
                   "object! Let's skip it... \n"
         else:
-            try:
-                f = file(self.path + "pathways.col", 'r')
-                data = f.readlines()
-                f.close()
-                if len(self.pathways) != 0:
+            data = self._read_col("pathways.col")
+            if data is not None:
+                try:
                     for line in data:
                         if line[0] == '#' or line[:3] == "UNI":
                             continue
 
                         chunks = line.replace('\n', '').split('\t')
-                        genes_uids = [chunk for chunk in chunks[2:]
+                        genes_uids = [chunk for chunk in chunks[2:108]
                                       if chunk != '']
-                        genes = [g for g in self.genes if g.uid in genes_uids]
+                        genes = [g for g in self.genes
+                                 if g.uid in genes_uids or g.name in genes_uids]
                         pathway = [p for p in self.pathways
                                    if p.uid == chunks[0]][0]
 
@@ -2265,9 +2260,8 @@ class MetaCyc():
                         for gene in genes:
                             self.edges.append(
                                 CreateEdge(gene, pathway, 'ACTS_IN'))
-
-            except:
-                print "There is no pathways.col file! Let's skip it..."
+                except:
+                    pass
 
     def protseq_fsa(self):
         """

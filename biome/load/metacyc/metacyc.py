@@ -967,6 +967,19 @@ class MetaCyc():
                   "format! Let's skip it..." % filename
             return None
 
+    def _read_col(self, filename):
+        """
+        The method tries to read .col-file
+        """
+        try:
+            f = file(self.path + filename, 'r')
+            data = f.readlines()
+            f.close()
+            return data
+        except:
+            print "There is no %s file! Let's skip it..." % filename
+            return None
+
     def add_edge(self, source, target, label):
         """
         The method creates an edge only if it is not presented in the

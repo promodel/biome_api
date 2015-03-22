@@ -835,7 +835,7 @@ class _DatObject():
         if isinstance(metacyc, MetaCyc):
             try:
                 for pred in self.PREDECESSORS.split('; '):
-                    pred = re.sub("()", "", pred).split(" ")
+                    pred = re.sub(r'\(?\)?', "", pred).split(" ")
                     reaction1 = [r for r in metacyc.reactions
                                  if r.uid == pred[1]][0]
                     reaction2 = [r for r in metacyc.reactions

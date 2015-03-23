@@ -30,6 +30,23 @@ def make_name(name):
     """
     return re.sub("[!,.'<>\[\];*-/+()\"]", "_", name).replace(' ', '_').replace('?', '')
 
+def make_stoich(reagent, sign):
+    try:
+        num = int(re.match('\d+', reagent).group(0))
+    except:
+        num = 1
+
+    # if stoichiometric coefficient is equal to n
+    if reagent[:2] == 'n ':
+        num = 'n'
+
+    # making correct sign
+    if num == 'n' and sign == -1:
+        num = '-n'
+    else:
+        num = num*sign
+    return num
+
 ###############################################################################
 
 
@@ -623,14 +640,15 @@ class _DatObject():
             'CCO-CYTOSOL': ('Cytosol',),
             'CCO-PM-BAC-NEG': ('Periplasmic space', 'Cytosol')}
 
+        len_left = len(self.LEFT.split('; '))
         reactants = self.LEFT.split('; ') + self.RIGHT.split('; ')
 
         # if no data about compartments, the default compartment is
         # cytosol
         if not hasattr(self, 'RXN_LOCATIONS') and \
                 not hasattr(self, '^COMPARTMENT'):
-            return [('CCO-CYTOSOL', 'Cytosol', reactant)
-                    for reactant in reactants]
+            return [len_left, [('CCO-CYTOSOL', 'Cytosol', reactant)
+                    for reactant in reactants]]
 
         # if reaction substrates and products are located in one
         # compartment and the compartment is specified in the
@@ -639,11 +657,11 @@ class _DatObject():
                 not hasattr(self, '^COMPARTMENT'):
             if getattr(self, 'RXN_LOCATIONS') in cco.keys():
                 compartment = getattr(self, 'RXN_LOCATIONS')
-                return [(compartment, cco[compartment][0], reactant)
-                        for reactant in reactants]
+                return [len_left, [(compartment, cco[compartment][0], reactant)
+                        for reactant in reactants]]
             else:
-                return [('UNKNOWN', 'Unknown', reactant)
-                        for reactant in reactants]
+                return [len_left, [('UNKNOWN', 'Unknown', reactant)
+                        for reactant in reactants]]
 
         # if reaction substrates and products are located in different
         # compartments and the compartments are specified in the
@@ -662,7 +680,7 @@ class _DatObject():
                     res1 = [('UNKNOWN', 'Unknown', reactant)
                             for reactant in reactants]
                 res.extend(res1)
-            return res
+            return [len_left, res]
 
         # if reaction substrates and products are located in different
         # compartments and the compartments are specified in the
@@ -685,17 +703,16 @@ class _DatObject():
 
             cco_in_out = []
             if hasattr(self, 'CCO_IN'):
-                cco_in_out.append(self.CCO_IN)
+                cco_in_out += self.CCO_IN.split('; ')
             if hasattr(self, 'CCO_OUT'):
-                cco_in_out.append(self.CCO_OUT)
+                cco_in_out += self.CCO_OUT.split('; ')
 
             res_unknowns = [('UNKNOWN', 'Unknown', reactant)
-                            for reactant in reactants
+                            for reactant in reactants \
                             if reactant not in cco_in_out]
 
             res = res_in + res_out + res_unknowns
-            return res
-
+            return [len_left, res]
         else:
             raise Exception('Unexpected error in match_compartments!')
 
@@ -751,27 +768,18 @@ class _DatObject():
                           metacyc.other_nodes
                 groups = [rna for rna in metacyc.rnas if
                           rna.__class__.__name__ == 'tRNA'] + metacyc.compounds
-                comps = self.match_compartments()
+                len_left, comps = self.match_compartments()
 
-                for comp in comps:
+                stech_sign = [-1]*len_left + [1]*(len(comps)-len_left)
+
+                for comp, sign in zip(comps, stech_sign):
                     # separating reactant name and numerical stoichiometric
                     # coefficient
                     reagent = comp[2]
                     item = re.sub(r'\d\s', '', reagent)
-
-                    try:
-                        num = re.match('\d+', reagent).group(0)
-                    except:
-                        num = 1
-
-                    # if stoichiometric coefficient is equal to n
-                        if reagent[:2] == 'n ':
-                            substance = reagent[2:]
-                            num = 'n'
-
+                    num = make_stoich(reagent, sign)
                     reagents = [i for i in objects
                                        if i.uid == reagent or i.name == reagent]
-
 
                     # searching in names of object groups and classes
                     if len(reagents) == 0:
@@ -792,6 +800,7 @@ class _DatObject():
                     for reagent in reagents:
                         compartment = [item for item in metacyc.compartments
                                        if item.name == comp[1]]
+
                         if len(compartment) == 0:
                             compartment = [item for item in metacyc.compartments
                                        if item.name == 'Unknown']
@@ -826,7 +835,7 @@ class _DatObject():
         if isinstance(metacyc, MetaCyc):
             try:
                 for pred in self.PREDECESSORS.split('; '):
-                    pred = re.sub("()", "", pred).split(" ")
+                    pred = re.sub(r'\(?\)?', "", pred).split(" ")
                     reaction1 = [r for r in metacyc.reactions
                                  if r.uid == pred[1]][0]
                     reaction2 = [r for r in metacyc.reactions
@@ -956,6 +965,19 @@ class MetaCyc():
         except:
             print "There is no %s file in the database or it has wrong " \
                   "format! Let's skip it..." % filename
+            return None
+
+    def _read_col(self, filename):
+        """
+        The method tries to read .col-file
+        """
+        try:
+            f = file(self.path + filename, 'r')
+            data = f.readlines()
+            f.close()
+            return data
+        except:
+            print "There is no %s file! Let's skip it..." % filename
             return None
 
     def add_edge(self, source, target, label):
@@ -1229,35 +1251,32 @@ class MetaCyc():
         Data extraction from genes.col file. Only writing (no upgrading)
         is possible!
         """
-        try:
-            f = file(self.path + "genes.col", 'r')
-            data = f.readlines()
-            f.close()
-
+        data = self._read_col("genes.col")
+        if data is not None:
             # WRITING de novo
             if len(self.genes) == 0:
                 for line in data:
-                    if line[0] != '#' and line[:9] != 'UNIQUE-ID':
-                        chunks = line.replace('\n', '').split('\t')
+                    try:
+                        if line[0] != '#' and line[:9] != 'UNIQUE-ID':
+                            chunks = line.replace('\n', '').split('\t')
 
-                        # creating formatted coordinates for a gene
-                        location = self._location(
-                            int(chunks[5]), int(chunks[6]))
+                            # creating formatted coordinates for a gene
+                            location = self._location(
+                                int(chunks[5]), int(chunks[6]))
 
-                        gene = Gene(uid=chunks[0], name=chunks[1],
-                                    start=location[0], end=location[1],
-                                    strand=location[2], product=chunks[2])
-                        self.genes.append(gene)
-                        self.name_to_terms(gene)
+                            gene = Gene(uid=chunks[0], name=chunks[1],
+                                        start=location[0], end=location[1],
+                                        strand=location[2], product=chunks[2])
+                            self.genes.append(gene)
+                            self.name_to_terms(gene)
+                    except:
+                        pass
                 print "A list with %d genes has been " \
                       "created!" % len(self.genes)
 
             # UPGRADING
             else:
                 pass
-        except:
-            print "There is no genes.col file in the database or it has " \
-                  "wrong format! Let's skip it..."
 
     def genes_dat(self):
         """
@@ -1279,7 +1298,7 @@ class MetaCyc():
                         continue
 
                     location = self._location(
-                            obj.attr_check("LEFT_END_POSITION"), 
+                            obj.attr_check("LEFT_END_POSITION"),
                             obj.attr_check("RIGHT_END_POSITION"),
                             obj.attr_check("TRANSCRIPTION_DIRECTION"))
                     gene = Gene(uid=uid,
@@ -1762,7 +1781,7 @@ class MetaCyc():
                 #  creating a Term for the peptide name
                 # (Peptide) -[:HAS_NAME]-> (Term)
                 self.name_to_terms(peptide)
-                
+
                 # creating Terms for peptide name synonyms
                 # (Peptide) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(peptide, self)
@@ -1927,8 +1946,7 @@ class MetaCyc():
             i = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
-                if "Sigma-Factors" in obj.TYPES.split('; ') or \
-                                'sigma' in obj.attr_check("COMMON_NAME"):
+                if "Sigma-Factors" in obj.TYPES.split('; ') or "sigma" in obj.attr_check("COMMON_NAME"):
                     if hasattr(obj, "SYNONYMS"):
                         name = [s for s in obj.SYNONYMS.split('; ')
                                 if s[:3] == 'Sig']
@@ -1950,8 +1968,8 @@ class MetaCyc():
                     obj.links_to_organism(sigma, self)
 
                     # creating an edge to a poplypetide/complex
-                    protein = [p for p in (self.polypeptides + self.complexes)
-                               if p.uid == uid]
+                    protein = [p for p in (self.polypeptides + self.complexes +
+                                           self.other_nodes) if p.uid == uid]
                     if len(protein) != 0:
                         self.edges.append(
                             CreateEdge(protein[0], sigma, 'IS_A'))
@@ -1959,11 +1977,12 @@ class MetaCyc():
                     # creating edges to promoters
                     if hasattr(obj, "RECOGNIZED_PROMOTERS"):
                         for uid in obj.RECOGNIZED_PROMOTERS.split('; '):
-                            pro = [p for p in self.promoters if p.uid == uid]
-                            if len(pro) == 0:
+                            pros = [p for p in self.promoters if p.uid == uid]
+                            if len(pros) == 0:
                                 continue
-                            self.edges.append(
-                                CreateEdge(sigma, pro, 'RECOGNIZES'))
+                            for pro in pros:
+                                self.edges.append(
+                                    CreateEdge(sigma, pro, 'RECOGNIZES'))
 
                     i += 1
             print "%d Sigma-factors have been created!" % i
@@ -1995,8 +2014,8 @@ class MetaCyc():
                 obj.links_to_organism(enzyme, self)
 
                 # creating edge to a polypeptide or complex
-                protein = [p for p in (self.polypeptides + self.complexes)
-                           if p.uid == obj.ENZYME]
+                protein = [p for p in (self.polypeptides + self.complexes +
+                                       self.other_nodes) if p.uid == obj.ENZYME]
 
                 if len(protein) == 0:
                     continue
@@ -2009,21 +2028,20 @@ class MetaCyc():
         """
         The method assignes subunit composition information to complexes.
         """
-        try:
-            f = file(self.path + "protcplxs.col", 'r')
-            data = f.readlines()
-            f.close()
+        data = self._read_col("protcplxs.col")
+        if data is not None:
             for line in data:
-                if line[0] == '#' or line[:3] == "UNI":
-                    continue
-                chunks = line.replace('\n', '').split('\t')
-                complex_obj = [c for c in self.complexes
-                               if c.uid == chunks[0]]
-                if len(complex_obj) == 0 or len(chunks[-1]) == 0:
-                    continue
-                setattr(complex_obj[0], "subunit_composition", chunks[-1])
-        except:
-            print "There is no protcplxs.col file! Let's skip it..."
+                try:
+                    if line[0] == '#' or line[:3] == "UNI":
+                        continue
+                    chunks = line.replace('\n', '').split('\t')
+                    complex_obj = [c for c in self.complexes
+                                   if c.uid == chunks[0]]
+                    if len(complex_obj) == 0 or len(chunks[-1]) == 0:
+                        continue
+                    setattr(complex_obj[0], "subunit_composition", chunks[-1])
+                except:
+                    pass
 
     def regulation_dat(self):
         """
@@ -2174,8 +2192,8 @@ class MetaCyc():
 
                 # creating edges to reaction name synonyms
                 # (Pathway) -[:HAS_NAME]-> (Term)
-                self.name_to_terms(pathway)                
-               
+                self.name_to_terms(pathway)
+
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
                 obj.links_to_reactions(pathway, self)
@@ -2198,7 +2216,7 @@ class MetaCyc():
 
                 # creating edges to reaction name synonyms
                 # (Pathway) -[:HAS_NAME]-> (Term)
-                self.name_to_terms(pathway) 
+                self.name_to_terms(pathway)
 
                 # creating edges to reactions in the pathway
                 # (Reaction) - [:PART_OF] -> (Pathway)
@@ -2208,7 +2226,7 @@ class MetaCyc():
                 # creating Terms for pathway name synonyms
                 # (Pathway) -[:HAS_NAME]-> (Term)
                 obj.links_to_synonyms(pathway, self)
-                
+
             print "A list with %d pathways has been " \
                   "created!" % len(self.pathways)
 
@@ -2223,19 +2241,18 @@ class MetaCyc():
             print "There is no information about pathways in the MetaCyc " \
                   "object! Let's skip it... \n"
         else:
-            try:
-                f = file(self.path + "pathways.col", 'r')
-                data = f.readlines()
-                f.close()
-                if len(self.pathways) != 0:
+            data = self._read_col("pathways.col")
+            if data is not None:
+                try:
                     for line in data:
                         if line[0] == '#' or line[:3] == "UNI":
                             continue
 
                         chunks = line.replace('\n', '').split('\t')
-                        genes_uids = [chunk for chunk in chunks[2:]
+                        genes_uids = [chunk for chunk in chunks[2:108]
                                       if chunk != '']
-                        genes = [g for g in self.genes if g.uid in genes_uids]
+                        genes = [g for g in self.genes
+                                 if g.uid in genes_uids or g.name in genes_uids]
                         pathway = [p for p in self.pathways
                                    if p.uid == chunks[0]][0]
 
@@ -2243,9 +2260,8 @@ class MetaCyc():
                         for gene in genes:
                             self.edges.append(
                                 CreateEdge(gene, pathway, 'ACTS_IN'))
-
-            except:
-                print "There is no pathways.col file! Let's skip it..."
+                except:
+                    pass
 
     def protseq_fsa(self):
         """
@@ -2266,45 +2282,44 @@ class MetaCyc():
         """
         The method creates nodes for proteins-transporters.
         """
-        try:
-            f = file(self.path + "transporters.col", 'r')
-            data = f.readlines()
-            f.close()
+        data = self._read_col("transporters.col")
+        if data is not None:
             for line in data:
-                if line[0] == '#' or line[:3] == "UNI":
-                    continue
-                chunks = line.replace('\n', '').split('\t')
+                try:
+                    if line[0] == '#' or line[:3] == "UNI":
+                        continue
+                    chunks = line.replace('\n', '').split('\t')
 
-                # skipping empty elements
-                if chunks[0] == '':
-                    continue
+                    # skipping empty elements
+                    if chunks[0] == '':
+                        continue
 
-                transporter = Transporter(name=chunks[1], reaction=chunks[2])
-                self.proteins.append(transporter)
+                    transporter = Transporter(name=chunks[1], reaction=chunks[2])
+                    self.proteins.append(transporter)
 
-                # creating edges to reaction name synonyms
-                # (Transporter) -[:HAS_NAME]-> (Term)
-                self.name_to_terms(transporter)
+                    # creating edges to reaction name synonyms
+                    # (Transporter) -[:HAS_NAME]-> (Term)
+                    self.name_to_terms(transporter)
 
-                protein = [p for p in (self.oligopeptides + self.polypeptides +
-                                       self.complexes) if p.uid == chunks[0]]
-                if len(protein) == 0:
-                    continue
+                    protein = [p for p in (self.oligopeptides + self.polypeptides +
+                                           self.complexes) if p.uid == chunks[0]]
+                    if len(protein) == 0:
+                        continue
 
-                # creating edges (Peptide) -[:IS_A]-> (Transporter)
-                # creating edges (Complex) -[:IS_A]-> (Transporter)
-                self.edges.append(CreateEdge(protein[0], transporter, 'IS_A'))
+                    # creating edges (Peptide) -[:IS_A]-> (Transporter)
+                    # creating edges (Complex) -[:IS_A]-> (Transporter)
+                    self.edges.append(
+                        CreateEdge(protein[0], transporter, 'IS_A'))
 
-                # creating an edge to the Organism node
-                # (Transporter) -[:PART_OF]-> (Organism)
-                self.edges.append(
-                            CreateEdge(transporter, self.organism, 'PART_OF'))
-
+                    # creating an edge to the Organism node
+                    # (Transporter) -[:PART_OF]-> (Organism)
+                    self.edges.append(
+                                CreateEdge(transporter, self.organism, 'PART_OF'))
+                except:
+                    pass
             transnum = len([p for p in self.proteins
                             if isinstance(p, Transporter)])
             print "%d protein-transporters have been created!" % transnum
-        except:
-            print "There is no transporters.col file! Let's skip it..."
 
     def summary(self, filename="summary.txt"):
         """
@@ -2411,7 +2426,8 @@ class MetaCyc():
                    self.proteins + self.complexes + \
                    self.protfeatures + self.regulation_events + \
                    self.reactions + self.pathways + self.other_nodes + \
-                   self.reactants + self.compartments
+                   self.reactants + self.compartments + [self.organism] + \
+                   self.ccp
 
         graph = nx.DiGraph()
 

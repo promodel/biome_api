@@ -2282,45 +2282,44 @@ class MetaCyc():
         """
         The method creates nodes for proteins-transporters.
         """
-        try:
-            f = file(self.path + "transporters.col", 'r')
-            data = f.readlines()
-            f.close()
+        data = self._read_col("transporters.col")
+        if data is not None:
             for line in data:
-                if line[0] == '#' or line[:3] == "UNI":
-                    continue
-                chunks = line.replace('\n', '').split('\t')
+                try:
+                    if line[0] == '#' or line[:3] == "UNI":
+                        continue
+                    chunks = line.replace('\n', '').split('\t')
 
-                # skipping empty elements
-                if chunks[0] == '':
-                    continue
+                    # skipping empty elements
+                    if chunks[0] == '':
+                        continue
 
-                transporter = Transporter(name=chunks[1], reaction=chunks[2])
-                self.proteins.append(transporter)
+                    transporter = Transporter(name=chunks[1], reaction=chunks[2])
+                    self.proteins.append(transporter)
 
-                # creating edges to reaction name synonyms
-                # (Transporter) -[:HAS_NAME]-> (Term)
-                self.name_to_terms(transporter)
+                    # creating edges to reaction name synonyms
+                    # (Transporter) -[:HAS_NAME]-> (Term)
+                    self.name_to_terms(transporter)
 
-                protein = [p for p in (self.oligopeptides + self.polypeptides +
-                                       self.complexes) if p.uid == chunks[0]]
-                if len(protein) == 0:
-                    continue
+                    protein = [p for p in (self.oligopeptides + self.polypeptides +
+                                           self.complexes) if p.uid == chunks[0]]
+                    if len(protein) == 0:
+                        continue
 
-                # creating edges (Peptide) -[:IS_A]-> (Transporter)
-                # creating edges (Complex) -[:IS_A]-> (Transporter)
-                self.edges.append(CreateEdge(protein[0], transporter, 'IS_A'))
+                    # creating edges (Peptide) -[:IS_A]-> (Transporter)
+                    # creating edges (Complex) -[:IS_A]-> (Transporter)
+                    self.edges.append(
+                        CreateEdge(protein[0], transporter, 'IS_A'))
 
-                # creating an edge to the Organism node
-                # (Transporter) -[:PART_OF]-> (Organism)
-                self.edges.append(
-                            CreateEdge(transporter, self.organism, 'PART_OF'))
-
+                    # creating an edge to the Organism node
+                    # (Transporter) -[:PART_OF]-> (Organism)
+                    self.edges.append(
+                                CreateEdge(transporter, self.organism, 'PART_OF'))
+                except:
+                    pass
             transnum = len([p for p in self.proteins
                             if isinstance(p, Transporter)])
             print "%d protein-transporters have been created!" % transnum
-        except:
-            print "There is no transporters.col file! Let's skip it..."
 
     def summary(self, filename="summary.txt"):
         """
@@ -2427,7 +2426,8 @@ class MetaCyc():
                    self.proteins + self.complexes + \
                    self.protfeatures + self.regulation_events + \
                    self.reactions + self.pathways + self.other_nodes + \
-                   self.reactants + self.compartments
+                   self.reactants + self.compartments + [self.organism] + \
+                   self.ccp
 
         graph = nx.DiGraph()
 

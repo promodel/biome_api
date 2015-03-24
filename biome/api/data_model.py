@@ -349,33 +349,35 @@ class Peptide(BioEntity):
     class.
     """
 
-    def __init__(self, name, uid=None, seq=None, molecular_weight_kd=None):
+    def __init__(self, name, uid=None, seq=None):
         BioEntity.__init__(self, name)
         self.uid = uid
         self.seq = seq
-        self.molecular_weight_kd = molecular_weight_kd
+
 
 ###############################################################################
 
 
-class Oligopeptide(Peptide):
+class Oligopeptide(Peptide, molecular_weight=None):
     """
     An object of class Oligopeptide. It inherits all methods from the Peptide
     class.
     """
-    def __init__(self, name, uid=None, seq=None, molecular_weight_kd=None):
-        Peptide.__init__(self, name, uid, seq, molecular_weight_kd)
+    def __init__(self, name, uid=None, seq=None, molecular_weight=None):
+        Peptide.__init__(self, name, uid, seq)
+        self.molecular_weight = molecular_weight
 
 ###############################################################################
 
 
-class Polypeptide(Peptide):
+class Polypeptide(Peptide, molecular_weight_kd=None):
     """
     An object of class Polypeptide. It inherits all methods from the Peptide
     class.
     """
     def __init__(self, name, uid=None, seq=None, molecular_weight_kd=None):
-        Peptide.__init__(self, name, uid, seq, molecular_weight_kd)
+        Peptide.__init__(self, name, uid, seq)
+        self.molecular_weight_kd = molecular_weight_kd
 
 ###############################################################################
 

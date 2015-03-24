@@ -1949,7 +1949,7 @@ class MetaCyc():
             i = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
-                if "Sigma-Factors" in obj.TYPES.split('; ') or "sigma" in obj.attr_check("COMMON_NAME"):
+                if "Sigma-Factors" in obj.TYPES or (hasattr(obj, "COMMON_NAME") and "sigma" in obj.COMMON_NAME):
                     if hasattr(obj, "SYNONYMS"):
                         name = [s for s in obj.SYNONYMS.split('; ')
                                 if s[:3] == 'Sig']

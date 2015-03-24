@@ -358,7 +358,7 @@ class Peptide(BioEntity):
 ###############################################################################
 
 
-class Oligopeptide(Peptide, molecular_weight=None):
+class Oligopeptide(Peptide):
     """
     An object of class Oligopeptide. It inherits all methods from the Peptide
     class.
@@ -370,7 +370,7 @@ class Oligopeptide(Peptide, molecular_weight=None):
 ###############################################################################
 
 
-class Polypeptide(Peptide, molecular_weight_kd=None):
+class Polypeptide(Peptide):
     """
     An object of class Polypeptide. It inherits all methods from the Peptide
     class.

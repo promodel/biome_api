@@ -5,7 +5,7 @@ import warnings
 from genbank_blaster import MakeJob
 
 class BlastUploader():
-    def __init__(self, db_link='http://localhost:8484/db/data/', logger_level=logging.INFO):
+    def __init__(self, db_link='http://localhost:9494/db/data/', logger_level=logging.INFO):
         logging.basicConfig(filename='BiomeDB.log',
                             level=logger_level,
                             format='%(asctime)s %(message)s - %(module)s.%(funcName)s',

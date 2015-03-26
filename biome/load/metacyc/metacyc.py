@@ -1525,9 +1525,10 @@ class MetaCyc():
                 if not hasattr(obj, "ABSOLUTE_PLUS_1_POS"):
                     unmapped += 1
                     continue
+                tss = int(obj.ABSOLUTE_PLUS_1_POS)
                 pro = Promoter(uid=uid,
                                name=obj.attr_check("COMMON_NAME", uid),
-                               start=obj.ABSOLUTE_PLUS_1_POS,
+                               start=,
                                end=obj.ABSOLUTE_PLUS_1_POS,
                                tss=obj.ABSOLUTE_PLUS_1_POS,
                                strand="unknown", seq=None)

@@ -1525,9 +1525,10 @@ class MetaCyc():
                 if not hasattr(obj, "ABSOLUTE_PLUS_1_POS"):
                     unmapped += 1
                     continue
+                tss = int(obj.ABSOLUTE_PLUS_1_POS)
                 pro = Promoter(uid=uid,
                                name=obj.attr_check("COMMON_NAME", uid),
-                               start=obj.ABSOLUTE_PLUS_1_POS,
+                               start=,
                                end=obj.ABSOLUTE_PLUS_1_POS,
                                tss=obj.ABSOLUTE_PLUS_1_POS,
                                strand="unknown", seq=None)
@@ -1762,18 +1763,21 @@ class MetaCyc():
                     self.polypeptides.append(peptide)
 
                 # Oligopeptides
-                elif len(set(types + oligo)) != len(oligo) + len(types):
+                elif len(set(types + oligo)) != len(oligo) + len(types) or \
+                        (hasattr(obj, 'MOLECULAR_WEIGHT') and hasattr(obj, 'SMILES')):
                     peptide = Oligopeptide(uid=uid,
                                            name=obj.attr_check("COMMON_NAME", uid),
-                                           molecular_weight_kd=obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                                           molecular_weight=obj.attr_check("MOLECULAR_WEIGHT"))
                     self.oligopeptides.append(peptide)
                 else:
-                    #warnings.warn("Unexpected peptide types! "
-                    #              "Let's skip it... \nThe object uid %s" % uid)
                     peptide = Unspecified(uid=uid,
                                           name=obj.attr_check("COMMON_NAME", uid))
-                    setattr(peptide, 'molecular_weight_kd',
-                            obj.attr_check("MOLECULAR_WEIGHT_KD"))
+                    if hasattr(obj, 'MOLECULAR_WEIGHT'):
+                        setattr(peptide, 'molecular_weight',
+                                obj.attr_check("MOLECULAR_WEIGHT"))
+                    if hasattr(obj, 'MOLECULAR_WEIGHT_KD'):
+                        setattr(peptide, 'molecular_weight_kd',
+                                obj.attr_check("MOLECULAR_WEIGHT_KD"))
                     peptide.labels = '%s:To_check' % peptide.labels
                     self.other_nodes.append(peptide)
                     unknown +=1
@@ -1946,7 +1950,7 @@ class MetaCyc():
             i = 0
             for uid in datfile.names:
                 obj = datfile.data[uid]
-                if "Sigma-Factors" in obj.TYPES.split('; ') or "sigma" in obj.attr_check("COMMON_NAME"):
+                if "Sigma-Factors" in obj.TYPES or (hasattr(obj, "COMMON_NAME") and "sigma" in obj.COMMON_NAME):
                     if hasattr(obj, "SYNONYMS"):
                         name = [s for s in obj.SYNONYMS.split('; ')
                                 if s[:3] == 'Sig']

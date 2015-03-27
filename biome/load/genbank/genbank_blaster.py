@@ -54,10 +54,10 @@ class MakeJob():
                 try:
                     for line_ind in xrange(line_number, average_quantity):
                             #print line_ind
-                            header, sequence, tail = lines[line_ind].split('\t')
-                            # header, sequence, tail, org = lines[line_ind].split('\t')
-                            new_file.write('>' + header + '\t' + tail + '\t' + sequence + '\n')
-                            # new_file.write('>' + header + '\t' + tail + '\t' + org + sequence + '\n')
+                            # header, sequence, tail = lines[line_ind].split('\t')
+                            header, sequence, tail, org = lines[line_ind].split('\t')
+                            # new_file.write('>' + header + '\t' + tail + '\t' + sequence + '\n')
+                            new_file.write('>' + header + '\t' + tail + '\t' + org + sequence + '\n')
                     line_number = average_quantity
                     average_quantity += init_average_quantity
                 except:
@@ -119,8 +119,8 @@ class MakeJob():
                 for result in transaction_out:
                     try:
                         # Write poly-id, seq, start, end, ccp-id
-                        # poly_str = '%s\t%s\t%d:%d:%s\t%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]), result[5])
-                        poly_str = '%s\t%s\t%d:%d:%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]))
+                        poly_str = '%s\t%s\t%d:%d:%s\t%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]), result[5])
+                        # poly_str = '%s\t%s\t%d:%d:%s\n' % (node2link(result[0]), result[1], result[2], result[3], node2link(result[4]))
                         polypeptides_file.write(poly_str)
                         poly_counter += 1
                     except:

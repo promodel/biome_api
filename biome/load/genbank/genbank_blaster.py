@@ -104,8 +104,8 @@ class MakeJob():
         if not os.path.isfile(self._blast_input_txt + '.txt'):
 
             #Find non-BLASTed polypeptides polypeptides for current organism
-            # transaction_out = self._find_non_blasted_proteins_with_taxon(organism)
-            transaction_out = self._find_non_blasted_proteins(organism)
+            transaction_out = self._find_non_blasted_proteins_with_taxon(organism)
+            # transaction_out = self._find_non_blasted_proteins(organism)
             if not transaction_out:
                 log_message = 'Nothing was found on your query: %s' % query
                 self._logger.warning(log_message)

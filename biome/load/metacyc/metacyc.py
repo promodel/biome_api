@@ -80,13 +80,14 @@ class _DatSet():
             f = file('%s%s' % (self.path, self.filename), 'r')
             data = f.readlines()
             f.close()
-            data = [line for line in data if line[0] != '#' and line[:2] != ';;' and line[:2] != '\n']
+            data = [line for line in data
+                    if line[0] != '#' and line[:2] != ';;' and line[:2] != '\n']
             chunks = {}
             chunk = _DatObject(db_format)
 
             for i, line in enumerate(data):
                 if line[:len(dict_keys)] == dict_keys:
-                    uid = line.replace("\n", '').split(sep)[1]
+                    uid = re.sub(r'[\r\n]', '', line).split(sep)[1]
                     self.names.append(uid)
                 elif line[:2] == '//':
                     chunk.formatting()
@@ -95,14 +96,14 @@ class _DatSet():
                 elif line[:1] == '/':
                     pass
                 else:
-                    sp_line = line.replace('\n', '').split(sep)
+                    sp_line = re.sub(r'[\r\n]', '', line).split(sep)
                     attr = make_name(sp_line[0])
                     if attr == "RIGHT" or attr == "LEFT":
-                        sp_nextline = data[i+1].replace('\n', '').split(sep)
+                        sp_nextline = re.sub(r'[\r\n]', '', data[i+1]).split(sep)
 
                         # if it is the end of file
                         if len(data) != i + 2:
-                            sp_nextnextline = data[i+2].replace('\n', '').split(sep)
+                            sp_nextnextline = re.sub(r'[\r\n]', '', data[i+2]).split(sep)
                         else:
                             sp_nextnextline = [None]
 
@@ -196,15 +197,6 @@ class _DatObject():
         except:
             pass
 
-    def tss_format(self):
-        """
-        The method changes string type of tss position to integer type.
-        """
-        try:
-            self.ABSOLUTE_PLUS_1_POS = int(self.ABSOLUTE_PLUS_1_POS)
-        except:
-            pass
-
     def promoter_format(self):
         """
         The method tries to extract sequences from promoter entries
@@ -264,7 +256,6 @@ class _DatObject():
         try:
             if self.TYPES == 'Promoters':
                 self.promoter_format()
-                self.tss_format()
         except:
             pass
         try:
@@ -447,7 +438,7 @@ class _DatObject():
         """
         if isinstance(attrname, basestring):
             if hasattr(self, attrname):
-                return getattr(self, attrname)
+                return getattr(self, re.sub(r'[\r\n]', '', attrname))
             else:
                 return if_no_data
         else:
@@ -1167,7 +1158,7 @@ class MetaCyc():
         # Setting MetaCyc DB version information and creating an Organism node.
         self._set_version()
 
-        # Creating nodes for Chromosomes, Contigsm, Plasmids, XRefs, DB(GenBank)
+        # Creating nodes for Chromosomes, Contigs, Plasmids, XRefs, DB(GenBank)
         # and edges between them
         self.create_ccp()
 
@@ -1525,12 +1516,11 @@ class MetaCyc():
                 if not hasattr(obj, "ABSOLUTE_PLUS_1_POS"):
                     unmapped += 1
                     continue
+
                 tss = int(obj.ABSOLUTE_PLUS_1_POS)
                 pro = Promoter(uid=uid,
                                name=obj.attr_check("COMMON_NAME", uid),
-                               start=,
-                               end=obj.ABSOLUTE_PLUS_1_POS,
-                               tss=obj.ABSOLUTE_PLUS_1_POS,
+                               start=tss, end=tss, tss=tss,
                                strand="unknown", seq=None)
                 self.promoters.append(pro)
 
@@ -1599,19 +1589,20 @@ class MetaCyc():
             nocomps = 0
             elements = self.promoters + self.BSs + self.genes\
                        + self.terminators
+
             for uid in datfile.names:
                 obj = datfile.data[uid]
+                tu_elements = obj.COMPONENTS.split("; ")
                 tu_obj = TU(name=obj.attr_check("COMMON_NAME", uid), uid=uid)
+                self.TUs.append(tu_obj)
 
                 comps = [c for c in elements \
-                         if c.uid in obj.COMPONENTS.split("; ")]
+                         if c.uid in tu_elements]
                 if len(comps) == 0:
                     nocomps += 1
                     continue
-                if len(comps) != len(obj.COMPONENTS.split("; ")):
+                if len(comps) != len(tu_elements):
                     notcomplete += 1
-
-                self.TUs.append(tu_obj)
 
                 # creating a Term for the RNA name
                 # (TU) -[:HAS_NAME]-> (Term)
@@ -1624,7 +1615,8 @@ class MetaCyc():
                 # searching for genes in a TU
                 genes = [c for c in comps if isinstance(c, Gene)]
 
-                # if there are no genes
+                # if there are no genes we add all components
+                # without strand checking
                 if len(genes) == 0:
                     for comp in comps:
                         self.edges.append(

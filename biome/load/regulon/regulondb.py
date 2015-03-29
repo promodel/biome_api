@@ -58,6 +58,29 @@ class RegulonDB():
             i += 1
         print '%d operons were created!' % i
 
+    def create_update_tus(self):
+        f = open(self.directory + 'Transcription Units.txt', 'r')
+        data = f.readlines()
+        f.close()
+        notfound = 0
+        i = 0
+        for line in data:
+            if line[0] == '#':
+                continue
+            chunks = line.split('\t')
+            tu_nodes = list(self.connection.find('TU', 'name', chunks[1]))
+
+            if not tu_nodes:
+                tu = self.connection.create(
+                    node({'name': chunks[0], 'start': chunks[1],
+                          'end': chunks[2], 'strand': chunks[3],
+                          'evidence': chunks[6]}))
+            elif len(tu_nodes)==1:
+                tu = tu_nodes[0]
+            else:
+                print "%d TUs with the same name were found" % len(tu_nodes)
+
+
 
 
 

@@ -42,10 +42,21 @@ class RegulonDB():
         f = open(self.directory + 'Operons.txt', 'r')
         data = f.readlines()
         f.close()
+        i = 0
         for line in data:
             if line[0] == '#':
                 continue
             chunks = line.split('\t')
+            operon, term, term_rel, org_rel = self.connection.\
+                create(node({'name': chunks[0], 'start': chunks[1],
+                             'end': chunks[2], 'strand': chunks[3],
+                             'evidence': chunks[6]}),
+                       node({'text': chunks[0]}),
+                       rel(0, 'HAS_NAME', 1),
+                       rel(0, 'PART_OF', self.ecoli_node))
+            operon.add_labels('Operon', 'BioEntity', 'DNA')
+            i += 1
+        print '%d operons were created!' % i
 
 
 

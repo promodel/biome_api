@@ -21,22 +21,14 @@ class RegulonDB():
         self.connection = neo4j.GraphDatabaseService(self.dblink)
 
         try:
-            # session = cypher.Session(self.dblink)
-            # transaction = session.create_transaction()
-            # query = 'MATCH (org:Organism {name:"%s"}) ' \
-            #         'RETURN org' % self.ecoli_name
-            # transaction.append(query)
-            # transaction_res = transaction.commit()[0]
             ecoli_node = list(self.connection.find('Organism', 'name', self.ecoli_name))
-            # print transaction_res[0][0]
         except:
             raise ValueError('Check the dblink! Could not connect!')
 
         if not ecoli_node:
             raise ValueError('There is no organism node with %s name!' % self.ecoli_name)
 
-        self.ecoli_node = ecoli_node
-
+        self.ecoli_node = ecoli_node[0]
 
     def __repr__(self):
         return "RegulonDB object for %s\nLink to database: %s" \

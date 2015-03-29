@@ -58,6 +58,17 @@ class RegulonDB():
             i += 1
         print '%d operons were created!' % i
 
+    def create_update_promoters(self):
+        f = open(self.directory + 'Transcription Units.txt', 'r')
+        data = f.readlines()
+        f.close()
+        notfound = 0
+        i = 0
+        for line in data:
+            if line[0] == '#':
+                continue
+            chunks = line.split('\t')
+
     def create_update_tus(self):
         f = open(self.directory + 'Transcription Units.txt', 'r')
         data = f.readlines()

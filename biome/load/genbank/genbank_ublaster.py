@@ -15,6 +15,7 @@ class BlastUploader():
         self.db_link = db_link
         self.data_base = neo4j.GraphDatabaseService(self.db_link)
         self._db_nodes = self._get_db_nodes()
+        neo4j._add_header('X-Stream', 'true;format=pretty')
 
     def _get_db_nodes(self):
         db_nodes_dict = {}

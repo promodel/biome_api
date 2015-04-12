@@ -111,6 +111,7 @@ class PrepareSwissProt():
         inputhandle.close()
         outputhandle.close()
         print swiss_name + ' was successfully converted to ' + fasta_name
+        os.remove(swiss_name + '.dat')
 
     def close_connection(self):
         self.ftp_connection.close()
@@ -190,3 +191,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# import doctest
+# doctest.testfile('usearch_test.txt')

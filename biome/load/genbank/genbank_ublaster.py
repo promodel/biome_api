@@ -33,19 +33,19 @@ class BlastUploader():
                 db_nodes_dict[db_name] = db[0]
         return db_nodes_dict
 
-    def find_nodes(self, label, keys=None, values=None):
-        # if not (isinstance(keys, list) and isinstance(values, list))\
-        #         or not (isinstance(keys, tuple) and isinstance(values, tuple)):
-        #     raise UserWarning('Keys and values must be lists or tuples.')
+    def find_nodes(self, label, keys=[], values=[]):
         if len(keys) != len(values):
             raise UserWarning('The number of keys must be the same as the number of values.')
 
         session = cypher.Session(self.db_link)
         transaction = session.create_transaction()
-        query = 'MATCH (node:%s) WHERE ' % label
-        for key, value in zip(keys, values):
-            query += 'node.%s="%s" AND ' % (key, value)
-        query = query[:-4] + 'RETURN node'
+        if keys:
+            query = 'MATCH (node:%s) WHERE ' % label
+            for key, value in zip(keys, values):
+                query += 'node.%s="%s" AND ' % (key, value)
+            query = query[:-4] + 'RETURN node'
+        else:
+            query = 'MATCH (node:%s) RETURN node' % label
         transaction.append(query)
         node = transaction.commit()
         try:
@@ -54,7 +54,7 @@ class BlastUploader():
             return []
 
     def find_organisms(self):
-        return self.data_base.find('Organism')
+        return self.find_nodes('Organism')
 
     def _find_node_by_id(self, poly_id):
         try:

@@ -2,18 +2,20 @@ import logging
 from time import time
 from py2neo import neo4j, node, rel, cypher
 import warnings
-from genbank_blaster import MakeJob
+from genbank import BioGraphConnection
 
 class BlastUploader():
-    def __init__(self, db_link='http://localhost:9494/db/data/', logger_level=logging.INFO):
+    def __init__(self, db_connection, logger_level=logging.INFO):
+        if not isinstance(db_connection, BioGraphConnection):
+            raise TypeError('db_connection must be an instance of the class BioGraphConnection.')
         logging.basicConfig(filename='BiomeDB.log',
                             level=logger_level,
                             format='%(asctime)s %(message)s - %(module)s.%(funcName)s',
                             datefmt='%H:%M:%S-%d.%m.%y')
         self._logger = logging.getLogger(__name__)
         self._logger.info('Initialization of Blaster')
-        self.db_link = db_link
-        self.data_base = neo4j.GraphDatabaseService(self.db_link)
+        self.db_connection = db_connection
+        self.db_link = self.db_connection.db_link
         self._db_nodes = self._get_db_nodes()
         neo4j._add_header('X-Stream', 'true;format=pretty')
 
@@ -22,7 +24,7 @@ class BlastUploader():
         for db_name in ['GenBank', 'PDB', 'UniProt', 'GI']:
             db = self.find_nodes('DB', ['name'], [db_name])
             if not db:
-                db, = self.data_base.create({'name': db_name})
+                db, = self.db_connection.data_base.create({'name': db_name})
                 db.add_labels('DB')
                 db_nodes_dict[db_name] = db
             elif len(db) > 1:
@@ -58,7 +60,7 @@ class BlastUploader():
 
     def _find_node_by_id(self, poly_id):
         try:
-            return [self.data_base.node(poly_id)]
+            return [self.db_connection.data_base.node(poly_id)]
         except:
             log_message = 'There is no node with id: %s' % poly_id
             print log_message
@@ -94,7 +96,7 @@ class BlastUploader():
         sp_node = self._db_nodes['UniProt']
 
         # Create a batch
-        batch = neo4j.WriteBatch(self.data_base)
+        batch = neo4j.WriteBatch(self.db_connection.data_base)
 
         # Read file line by line
         for line in file_read:
@@ -140,7 +142,7 @@ class BlastUploader():
 
                         # Compare poly's sequence and the file sequence
                         if poly_seq == target_seq:
-                            rels = list(self.data_base.match(start_node=b_poly, end_node=poly))
+                            rels = list(self.db_connection.data_base.match(start_node=b_poly, end_node=poly))
                             if not rels:
                                 # If matches, create 'SIMILAR' edge
                                 batch.create(rel(b_poly, 'SIMILAR', poly))

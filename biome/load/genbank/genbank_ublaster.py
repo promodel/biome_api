@@ -3,6 +3,7 @@ from time import time
 from py2neo import neo4j, node, rel, cypher
 import warnings
 from genbank import BioGraphConnection
+from genbank_blaster import MakeJob
 
 class BlastUploader():
     def __init__(self, db_connection, logger_level=logging.INFO):

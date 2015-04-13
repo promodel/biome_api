@@ -56,6 +56,7 @@ class MakeJob():
                             #print line_ind
                             # header, sequence, tail = lines[line_ind].split('\t')
                             header, sequence, tail, org = lines[line_ind].split('|')
+                            org = re.sub('[!@#$/ ]', '_', org)
                             # new_file.write('>' + header + '\t' + tail + '\t' + sequence + '\n')
                             new_file.write('>' + header + '|' + tail + '|' + org + sequence + '\n')
                     line_number = average_quantity

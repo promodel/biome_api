@@ -150,6 +150,18 @@ class RegulonDB():
         print '%d promoters were updated!\n' \
               '%d promoters were created!' % (updated, notfound)
 
+        
 
+    # def create_update_BSs(self):
+    #     f = open(self.directory + 'TF binding sites.txt', 'r')
+    #     data = f.readlines()
+    #     f.close()
+    #     notfound = 0
+    #     updated = 0
+    #     for line in data:
+    #         if line[0] == '#':
+    #             continue
+    #         regid, name, site_id, start, end, strand, inter_id, tu, effect, pro, center, seq, evidence = line.split('\t')
+    #         tss = int(tss)
 
 

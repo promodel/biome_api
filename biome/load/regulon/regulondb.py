@@ -81,9 +81,16 @@ class RegulonDB():
             if line[0] == '#':
                 continue
             chunks = line.split('\t')
+
+            ### testing
+            if chunks[0] == '' or chunks[1] == '' or chunks[2] == 0:
+                continue
+            if chunks[3] == '':
+                chunks[3] = 'unknown'
+
             operon, term, term_rel, org_rel = self.connection.\
-                create(node({'name': chunks[0], 'start': chunks[1],
-                             'end': chunks[2], 'strand': chunks[3],
+                create(node({'name': chunks[0], 'start': int(chunks[1]),
+                             'end': int(chunks[2]), 'strand': chunks[3],
                              'evidence': chunks[6], 'source': 'RegulonDB'}),
                        node({'text': chunks[0]}),
                        rel(0, 'HAS_NAME', 1),
@@ -150,7 +157,23 @@ class RegulonDB():
         print '%d promoters were updated!\n' \
               '%d promoters were created!' % (updated, notfound)
 
-        
+    def create_update_tus(self):
+        f = open(self.directory + 'Transcription Units.txt', 'r')
+        data = f.readlines()
+        f.close()
+        notfound = 0
+        updated = 0
+        for line in data:
+            if line[0] == '#':
+                continue
+            regid, name, operon. strand, genes_name, pro, evidence = line.split('\t')
+
+
+            # skipping incomplete data
+            if '' in [regid, name, strand, tss]:
+                continue
+
+
 
     # def create_update_BSs(self):
     #     f = open(self.directory + 'TF binding sites.txt', 'r')

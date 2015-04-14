@@ -122,7 +122,7 @@ class RegulonDB():
             promoter_query = neo4j.CypherQuery(self.connection, query)
             promoter_nodes = promoter_query.execute()
 
-            # no promoter with the tss
+            # creating promoter
             if not promoter_nodes:
                 promoter, term, rel_org, rel_chr, rel_term = self.connection.create(
                     node({'name': name, 'start': tss,
@@ -161,19 +161,49 @@ class RegulonDB():
         f = open(self.directory + 'Transcription Units.txt', 'r')
         data = f.readlines()
         f.close()
-        notfound = 0
-        updated = 0
+        created, updated, problem = [0]*3
         for line in data:
             if line[0] == '#':
                 continue
-            regid, name, operon. strand, genes_name, pro, evidence = line.split('\t')
+            regid, name, operon, genes_name, pro, evidence = line.split('\t')
 
-
-            # skipping incomplete data
-            if '' in [regid, name, strand, tss]:
+            ### testing
+            if regid == '' or operon == '':
                 continue
 
+            # searching for TU with the same name
+            query = 'MATCH (p:Promoter {name: "%s"})<-[:CONTAINS]-' \
+                    '(tu:TU)-[:PART_OF]->' \
+                    '(o:Organism {name: "%s"}) ' \
+                    'RETURN tu' % (pro, self.ecoli_name)
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
 
+            # no tu with the name was found
+            if not res_nodes:
+                tu, term, rel_org, rel_term = self.connection.create(
+                    node({'name': name, 'evidence': evidence,
+                          'Reg_id': regid, 'source': 'RegulonDB'}),
+                    node({'text': name}),
+                    rel(0, 'PART_OF', self.ecoli_node),
+                    rel(0, 'HAS_NAME', 1))
+                tu.add_labels('TU', 'BioEntity', 'DNA')
+                term.add_labels('Term')
+                created += 1
+            elif len(res_nodes.data) == 1:
+                tu = res_nodes.data[0].values[0]
+                tu.update_properties({'evidence': evidence,
+                                      'Reg_id': regid})
+                update_source_property(tu)
+                self.check_create_terms(tu, name)
+                updated += 1
+            else:
+                problem += 1
+                warnings.warn("There are %d nodes for a TU with name %s! All of them have the same promoter %s!\n"
+                              "They were skipped!\n" % (len(res_nodes.data), name, pro))
+        print "%d TUs were updated and connected to operons!\n" \
+              "%d TUs were created and connected to operons!\n" \
+              "There were problems with %d TUs." % (updated, created, problem)
 
     # def create_update_BSs(self):
     #     f = open(self.directory + 'TF binding sites.txt', 'r')

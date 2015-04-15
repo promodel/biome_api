@@ -168,12 +168,12 @@ class RegulonDB():
             regid, name, operon, genes_name, pro, evidence = line.split('\t')
 
             ### testing
-            if regid == '' or operon == '':
+            if '' in [regid, operon]:
                 continue
 
             # searching for TU with the same name
-            query = 'MATCH (p:Promoter {name: "%s"})<-[:CONTAINS]-' \
-                    '(tu:TU)-[:PART_OF]->' \
+            query = 'MATCH (t:Term {text: "%s"})<-[:HAS_NAME]-' \
+                    '(p:Promoter)<-[:CONTAINS]-(tu:TU)-[:PART_OF]->' \
                     '(o:Organism {name: "%s"}) ' \
                     'RETURN tu' % (pro, self.ecoli_name)
             res = neo4j.CypherQuery(self.connection, query)
@@ -190,6 +190,26 @@ class RegulonDB():
                 tu.add_labels('TU', 'BioEntity', 'DNA')
                 term.add_labels('Term')
                 created += 1
+
+                # creating a relation (:TU)-[:CONTAINS]->(:Promoter)
+                query = 'MATCH (t:Term {text: "%s"})<-[:HAS_NAME]-' \
+                        '(p:Promoter)-[:PART_OF]->(o:Organism {name: "%s"}) ' \
+                        'RETURN p' % (pro, self.ecoli_name)
+                res = neo4j.CypherQuery(self.connection, query)
+                res_nodes = res.execute()
+
+                if not res_nodes:
+                    warnings.warn("There is no node for a promoter with name %s!\n"
+                                  "It was skipped!\n" % pro)
+
+                # if there are promoters-duplicates
+                elif len(res_nodes) > 1:
+                    warnings.warn("There are %d nodes for a promoter with name %s!\n"
+                                  "They were skipped!\n" % (len(res_nodes), pro))
+                else:
+                    rel_promoter = self.connection.create(
+                        rel(tu, 'CONTAINS', res_nodes.data[0].values[0]))
+
             elif len(res_nodes.data) == 1:
                 tu = res_nodes.data[0].values[0]
                 tu.update_properties({'evidence': evidence,
@@ -201,9 +221,29 @@ class RegulonDB():
                 problem += 1
                 warnings.warn("There are %d nodes for a TU with name %s! All of them have the same promoter %s!\n"
                               "They were skipped!\n" % (len(res_nodes.data), name, pro))
+                continue
+
+            # creating a relation (:TU)<-[:CONTAINS]-
+            operon_node = list(self.connection.find('Operon', 'name', operon))
+
+            if not operon_node:
+                warnings.warn("There is no node for an operon with name %s!\n"
+                              "It was skipped!\n" % operon)
+
+            # if there are operons-duplicates
+            elif len(operon_node) > 1:
+                warnings.warn("There are %d nodes for an operon with name %s!\n"
+                              "They were skipped!\n" % (len(operon_node), operon))
+            else:
+                rel_operon = self.connection.create(
+                    rel(operon_node[0], 'CONTAINS', tu))
+
+
         print "%d TUs were updated and connected to operons!\n" \
               "%d TUs were created and connected to operons!\n" \
               "There were problems with %d TUs." % (updated, created, problem)
+
+
 
     # def create_update_BSs(self):
     #     f = open(self.directory + 'TF binding sites.txt', 'r')

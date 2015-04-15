@@ -103,8 +103,8 @@ class RegulonDB():
         f = open(self.directory + 'All Promoters.txt', 'r')
         data = f.readlines()
         f.close()
-        notfound = 0
-        updated = 0
+        notfound, updated = [0]*2
+        
         for line in data:
             if line[0] == '#':
                 continue

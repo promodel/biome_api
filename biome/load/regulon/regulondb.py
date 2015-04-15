@@ -119,11 +119,11 @@ class RegulonDB():
                     '(p:Promoter {tss: %d})-[:PART_OF]->' \
                     '(o:Organism {name: "%s"}) ' \
                     'RETURN p' % (self.chro_name, tss,  self.ecoli_name)
-            promoter_query = neo4j.CypherQuery(self.connection, query)
-            promoter_nodes = promoter_query.execute()
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
 
             # creating promoter
-            if not promoter_nodes:
+            if not res_nodes:
                 promoter, term, rel_org, rel_chr, rel_term = self.connection.create(
                     node({'name': name, 'start': tss,
                           'end': tss, 'strand': strand,
@@ -139,7 +139,7 @@ class RegulonDB():
                 notfound += 1
             else:
                 # one promoter with the tss
-                for record in promoter_nodes.data:
+                for record in res_nodes.data:
                     promoter = record.values[0]
                     promoter.update_properties({'seq': seq,
                                                 'evidence': evidence,
@@ -149,10 +149,10 @@ class RegulonDB():
                     updated += 1
 
                 # duplicates!
-                if len(promoter_nodes.data) > 1:
+                if len(res_nodes.data) > 1:
                     warnings.warn("There are %d nodes for a promoter with tss"
                                   " in the %d position! It was skipped!\n"
-                                  % (len(promoter_nodes.data), tss))
+                                  % (len(res_nodes.data), tss))
 
         print '%d promoters were updated!\n' \
               '%d promoters were created!' % (updated, notfound)
@@ -242,19 +242,5 @@ class RegulonDB():
         print "%d TUs were updated and connected to operons!\n" \
               "%d TUs were created and connected to operons!\n" \
               "There were problems with %d TUs." % (updated, created, problem)
-
-
-
-    # def create_update_BSs(self):
-    #     f = open(self.directory + 'TF binding sites.txt', 'r')
-    #     data = f.readlines()
-    #     f.close()
-    #     notfound = 0
-    #     updated = 0
-    #     for line in data:
-    #         if line[0] == '#':
-    #             continue
-    #         regid, name, site_id, start, end, strand, inter_id, tu, effect, pro, center, seq, evidence = line.split('\t')
-    #         tss = int(tss)
 
 

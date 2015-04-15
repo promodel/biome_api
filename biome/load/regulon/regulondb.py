@@ -243,4 +243,69 @@ class RegulonDB():
               "%d TUs were created and connected to operons!\n" \
               "There were problems with %d TUs." % (updated, created, problem)
 
+    def create_update_terminators(self):
+        f = open(self.directory + 'Terminators.txt', 'r')
+        data = f.readlines()
+        f.close()
+        created, updated, problem = [0]*3
+        for line in data:
+            if line[0] == '#':
+                continue
+            regid, start, end, strand, seq, tu, type, operon, ref, evidence = line.split('\t')
+            start, end = [int(start), int(end)]
+
+            # skipping incomplete data
+            if '' in [regid, strand, start, end]:
+                continue
+
+            query = 'MATCH (ch:Chromosome {name: "%s"})<-[:PART_OF]-' \
+                    '(t:Terminator {start: %d, end: %d, strand: "%s"})-' \
+                    '[:PART_OF]->(o:Organism {name: "%s"}) ' \
+                    'RETURN t' % (self.chro_name, start, end, strand, self.ecoli_name)
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
+
+            # creating promoter
+            if not res_nodes:
+                terminator, rel_org, rel_chr = self.connection.create(
+                    node({'start': start, 'end': end,
+                          'strand': strand, 'seq': seq,
+                          'evidence': evidence, 'Reg_id': regid,
+                          'source': 'RegulonDB'}),
+                    rel(0, 'PART_OF', self.ecoli_node),
+                    rel(0, 'PART_OF', self.chro_node))
+                terminator.add_labels('Terminator', 'Feature', 'DNA')
+                notfound += 1
+
+            elif len(res_nodes.data) > 1:
+                warnings.warn("There are %d nodes for a terminator with "
+                              "location (%d, %d, %s)! It was skipped!\n"
+                              % (len(res_nodes.data), start, end, strand))
+                    promoter = record.values[0]
+                    promoter.update_properties({'seq': seq,
+                                                'evidence': evidence,
+                                                'Reg_id': regid})
+                    update_source_property(promoter)
+                    self.check_create_terms(promoter, name)
+                    updated += 1
+
+                # duplicates!
+                if len(promoter_nodes.data) > 1:
+
+
+        print '%d promoters were updated!\n' \
+              '%d promoters were created!' % (updated, notfound)
+
+    # def create_update_BSs(self):
+    #     f = open(self.directory + 'TF binding sites.txt', 'r')
+    #     data = f.readlines()
+    #     f.close()
+    #     notfound = 0
+    #     updated = 0
+    #     for line in data:
+    #         if line[0] == '#':
+    #             continue
+    #         regid, name, site_id, start, end, strand, inter_id, tu, effect, pro, center, seq, evidence = line.split('\t')
+    #         tss = int(tss)
+
 

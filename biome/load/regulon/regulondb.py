@@ -353,7 +353,7 @@ class RegulonDB():
             res_nodes = res.execute()
 
             if not res_nodes:
-                problem +=1
+                problem += 1
                 continue
             elif len(res_nodes.data) == 1:
                 promoter = res_nodes.data[0].values[0]
@@ -370,11 +370,14 @@ class RegulonDB():
 
             query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
                     '(tu:TU)-[:HAS_NAME]-(t1:Term {text: "%s"}), ' \
-                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]-(t2:Term {text: "%s"}),' \
-                    '(tu)-[:CONTAINS]->(bs:BS {start: %d}) ' \
-                    'RETURN bs' % (self.ecoli_name, tu_name, pro, MC_start)
+                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]-(t2:Term {text: "%s"}), ' \
+                    '(tu)-[:CONTAINS]->(bs:BS {start: %d, strand: "%s"}) ' \
+                    'RETURN bs' % (self.ecoli_name, tu_name, pro, MC_start, strand)
             res = neo4j.CypherQuery(self.connection, query)
             res_nodes = res.execute()
+
+            print query
+            print res_nodes.data
 
             # creating BS
             if not res_nodes:
@@ -392,8 +395,9 @@ class RegulonDB():
                 transreg.add_labels('TranscriptionRegulation', 'RegulationEvent', 'Binding')
                 created += 1
 
-            elif len(res_nodes.data) == 1:
-                    bs = res_nodes.data[0].values[0]
+            else:
+                for record in res_nodes.data:
+                    bs = record.values[0]
                     bs.update_properties({'seq': seq, 'start': start,
                                           'end': end, 'strand': strand,
                                           'evidence': evidence,
@@ -401,19 +405,12 @@ class RegulonDB():
                                           'center': center})
                     update_source_property(bs)
 
-                    transreg, rel_bs_transreg = self.connection.create(
+                    transreg, rel_bs_transreg, rel_pro = self.connection.create(
                         node({'Reg_id': inter_id, 'source': 'RegulonDB'}),
-                        rel(bs, 'PARTICIPATES_IN', 1),
-                        rel(1, tf_effect(effect), promoter))
+                        rel(bs, 'PARTICIPATES_IN', 0),
+                        rel(0, tf_effect(effect), promoter))
                     transreg.add_labels('TranscriptionRegulation', 'RegulationEvent', 'Binding')
                     updated += 1
-
-            # duplicates!
-            else:
-                warnings.warn("There are %d nodes for a terminator with "
-                              "location (%d, %d, %s)! It was skipped!\n"
-                              % (len(res_nodes.data), start, end, strand))
-                continue
 
             # creating relations (:TF)-[:PARTICIPATES_IN]->(:TranscriptionRegulation)
 

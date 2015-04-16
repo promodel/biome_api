@@ -72,6 +72,23 @@ class RegulonDB():
                 rel(0, 'HAS_NAME', bioentity))
             term.add_labels('Term')
 
+    def relation_with_tu(self, tu_name, element):
+        query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
+                    '(tu:TU)-[:HAS_NAME]->(:Term {text: "%s"}) ' \
+                    'RETURN tu' % (self.ecoli_name, tu_name)
+        res = neo4j.CypherQuery(self.connection, query)
+        res_nodes = res.execute()
+
+        if not res_nodes:
+            warnings.warn("There is no node for a TU with name %s!\n"
+                              "It was skipped!\n" % tu_name)
+            return 1
+        else:
+            for tu in res_nodes.data:
+                rel_tu = self.connection.create(
+                    rel(tu.values[0], 'CONTAINS', element))
+            return 0
+
     def create_operons(self):
         f = open(self.directory + 'Operons.txt', 'r')
         data = f.readlines()
@@ -291,22 +308,8 @@ class RegulonDB():
                 continue
 
             # creating relations (:TU)-[:CONTAINS]->(:Terminator)
-            query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
-                    '(tu:TU)-[:HAS_NAME]->(:Term {text: "%s"}) ' \
-                    'RETURN tu' % (self.ecoli_name, tu)
-            res = neo4j.CypherQuery(self.connection, query)
-            res_nodes = res.execute()
-
-            if not res_nodes:
-                warnings.warn("There is no node for a TU with name %s!\n"
-                              "It was skipped!\n" % tu)
-                problem += 1
-
-            else:
-                for tu in res_nodes.data:
-                    rel_tu = self.connection.create(
-                        rel(tu.values[0], 'CONTAINS', terminator))
-
+            rel_tu = self.relation_with_tu(tu, terminator)
+            problem = problem + rel_tu
 
         print '%d terminators were updated!\n' \
               '%d terminators were created!\n' \

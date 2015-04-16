@@ -103,8 +103,8 @@ class RegulonDB():
         f = open(self.directory + 'All Promoters.txt', 'r')
         data = f.readlines()
         f.close()
-        notfound, updated = [0]*2
-        
+        created, updated = [0]*2
+
         for line in data:
             if line[0] == '#':
                 continue
@@ -136,7 +136,7 @@ class RegulonDB():
                     rel(0, 'HAS_NAME', 1))
                 promoter.add_labels('Promoter', 'Feature', 'BioEntity', 'DNA')
                 term.add_labels('Term')
-                notfound += 1
+                created += 1
             else:
                 # one promoter with the tss
                 for record in res_nodes.data:
@@ -155,7 +155,7 @@ class RegulonDB():
                                   % (len(res_nodes.data), tss))
 
         print '%d promoters were updated!\n' \
-              '%d promoters were created!' % (updated, notfound)
+              '%d promoters were created!' % (updated, created)
 
     def create_update_tus(self):
         f = open(self.directory + 'Transcription Units.txt', 'r')
@@ -223,7 +223,7 @@ class RegulonDB():
                               "They were skipped!\n" % (len(res_nodes.data), name, pro))
                 continue
 
-            # creating a relation (:TU)<-[:CONTAINS]-
+            # creating a relation (:TU)<-[:CONTAINS]-(:Operon)
             operon_node = list(self.connection.find('Operon', 'name', operon))
 
             if not operon_node:
@@ -259,42 +259,61 @@ class RegulonDB():
                 continue
 
             query = 'MATCH (ch:Chromosome {name: "%s"})<-[:PART_OF]-' \
-                    '(t:Terminator {start: %d, end: %d, strand: "%s"})-' \
-                    '[:PART_OF]->(o:Organism {name: "%s"}) ' \
-                    'RETURN t' % (self.chro_name, start, end, strand, self.ecoli_name)
+                    '(t:Terminator {start: %d, end: %d, strand: "%s"}) ' \
+                    'RETURN t' % (self.chro_name, start, end, strand)
+            print query
             res = neo4j.CypherQuery(self.connection, query)
             res_nodes = res.execute()
 
-            # creating promoter
+            # creating terminator
             if not res_nodes:
-                terminator, rel_org, rel_chr = self.connection.create(
+                terminator, rel_chr = self.connection.create(
                     node({'start': start, 'end': end,
                           'strand': strand, 'seq': seq,
                           'evidence': evidence, 'Reg_id': regid,
                           'source': 'RegulonDB'}),
-                    rel(0, 'PART_OF', self.ecoli_node),
                     rel(0, 'PART_OF', self.chro_node))
                 terminator.add_labels('Terminator', 'Feature', 'DNA')
-                notfound += 1
+                created += 1
 
-            elif len(res_nodes.data) > 1:
+            elif len(res_nodes.data) == 1:
+                    terminator = res_nodes.data[0].values[0]
+                    terminator.update_properties({'seq': seq,
+                                                  'evidence': evidence,
+                                                  'Reg_id': regid})
+                    update_source_property(terminator)
+                    updated += 1
+
+            # duplicates!
+            else:
                 warnings.warn("There are %d nodes for a terminator with "
                               "location (%d, %d, %s)! It was skipped!\n"
                               % (len(res_nodes.data), start, end, strand))
-                    promoter = record.values[0]
-                    promoter.update_properties({'seq': seq,
-                                                'evidence': evidence,
-                                                'Reg_id': regid})
-                    update_source_property(promoter)
-                    self.check_create_terms(promoter, name)
-                    updated += 1
+                continue
 
-                # duplicates!
-                if len(promoter_nodes.data) > 1:
+            # creating relations (:TU)-[:CONTAINS]->(:Terminator)
+            query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
+                    '(tu:TU)-[:HAS_NAME]->(:Term {text: "%s"}) ' \
+                    'RETURN tu' % (self.ecoli_name, tu)
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
+
+            if not res_nodes:
+                warnings.warn("There is no node for a TU with name %s!\n"
+                              "It was skipped!\n" % tu)
+                problem += 1
+
+            else:
+                for tu in res_nodes.data:
+                    print tu
+                    # rel_tu = self.connection.create(
+                    #     rel(tu, 'CONTAINS', tu.values[0]))
 
 
-        print '%d promoters were updated!\n' \
-              '%d promoters were created!' % (updated, notfound)
+        print '%d terminators were updated!\n' \
+              '%d terminators were created!\n ' \
+              'There were problems with %d terminators.' \
+              % (updated, created, problem)
 
     # def create_update_BSs(self):
     #     f = open(self.directory + 'TF binding sites.txt', 'r')

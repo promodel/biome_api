@@ -261,7 +261,6 @@ class RegulonDB():
             query = 'MATCH (ch:Chromosome {name: "%s"})<-[:PART_OF]-' \
                     '(t:Terminator {start: %d, end: %d, strand: "%s"}) ' \
                     'RETURN t' % (self.chro_name, start, end, strand)
-            print query
             res = neo4j.CypherQuery(self.connection, query)
             res_nodes = res.execute()
 
@@ -305,13 +304,12 @@ class RegulonDB():
 
             else:
                 for tu in res_nodes.data:
-                    print tu
-                    # rel_tu = self.connection.create(
-                    #     rel(tu, 'CONTAINS', tu.values[0]))
+                    rel_tu = self.connection.create(
+                        rel(tu.values[0], 'CONTAINS', terminator))
 
 
         print '%d terminators were updated!\n' \
-              '%d terminators were created!\n ' \
+              '%d terminators were created!\n' \
               'There were problems with %d terminators.' \
               % (updated, created, problem)
 

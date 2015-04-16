@@ -4,6 +4,7 @@ import biome.load.genbank.genbank as gb
 import os
 import warnings
 
+
 def update_source_property(node):
     if not isinstance(node, gb.neo4j.Node):
         raise TypeError('The node argument must be an object of neo4j.Node class!')
@@ -16,6 +17,17 @@ def update_source_property(node):
         node.update_properties({'source': source.append('RegulonDB')})
     else:
         raise Exception('Unexpected source type!')
+
+
+def tf_effect(effect):
+    if effect == '+':
+        return 'ACTIVATES'
+    if effect == '-':
+        return 'REPRESSES'
+    if effect == '+-':
+        return 'DUAL'
+    if effect == '?':
+        return 'UNKNOWN'
 
 
 class RegulonDB():
@@ -272,7 +284,7 @@ class RegulonDB():
             start, end = [int(start), int(end)]
 
             # skipping incomplete data
-            if '' in [regid, strand, start, end]:
+            if '' in [regid, strand, start, end] or 0 in [start, end]:
                 continue
 
             query = 'MATCH (ch:Chromosome {name: "%s"})<-[:PART_OF]-' \
@@ -316,16 +328,96 @@ class RegulonDB():
               'There were problems with %d terminators.' \
               % (updated, created, problem)
 
-    # def create_update_BSs(self):
-    #     f = open(self.directory + 'TF binding sites.txt', 'r')
-    #     data = f.readlines()
-    #     f.close()
-    #     notfound = 0
-    #     updated = 0
-    #     for line in data:
-    #         if line[0] == '#':
-    #             continue
-    #         regid, name, site_id, start, end, strand, inter_id, tu, effect, pro, center, seq, evidence = line.split('\t')
-    #         tss = int(tss)
+    def create_update_BSs(self):
+        f = open(self.directory + 'TF binding sites.txt', 'r')
+        data = f.readlines()
+        f.close()
+        created, updated, problem = [0]*3
 
+        for line in data:
+            if line[0] == '#':
+                continue
+            regid, name, site_id, start, end, strand, inter_id, tu_name, effect, pro, center, seq, evidence = line.split('\t')
 
+            ### testing
+            if '' in [regid, strand, start, end, center] or 0 in [start, end]:
+                continue
+
+            start, end, center = [int(start), int(end), float(center)]
+
+            query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
+                    '(tu:TU)-[:HAS_NAME]-(t1:Term {text: "%s"}), ' \
+                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]-(t2:Term {text: "%s"}) ' \
+                    'RETURN p, tu' % (self.ecoli_name, tu_name, pro)
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
+
+            if not res_nodes:
+                problem +=1
+                continue
+            elif len(res_nodes.data) == 1:
+                promoter = res_nodes.data[0].values[0]
+                tu = res_nodes.data[0].values[1]
+            else:
+                warnings.warn("It is impossible to identify a transcription "
+                              "unit for a binding site with location "
+                              "(%d, %d, %s)! It was skipped!\n"
+                              % (start, end, strand))
+                continue
+
+            ### calculating BS position in MetaCyc
+            MC_start = int(promoter["tss"] + center)
+
+            query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
+                    '(tu:TU)-[:HAS_NAME]-(t1:Term {text: "%s"}), ' \
+                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]-(t2:Term {text: "%s"}),' \
+                    '(tu)-[:CONTAINS]->(bs:BS {start: %d}) ' \
+                    'RETURN bs' % (self.ecoli_name, tu_name, pro, MC_start)
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
+
+            # creating BS
+            if not res_nodes:
+                bs, transreg, rel_bs_transreg, rel_chr, rel_pro, rel_tu = self.connection.create(
+                    node({'start': start, 'end': end,
+                          'strand': strand, 'seq': seq,
+                          'evidence': evidence, 'Reg_id': site_id,
+                          'source': 'RegulonDB', 'center': center}),
+                    node({'Reg_id': inter_id, 'source': 'RegulonDB'}),
+                    rel(0, 'PARTICIPATES_IN', 1),
+                    rel(0, 'PART_OF', self.chro_node),
+                    rel(1, tf_effect(effect), promoter),
+                    rel(tu, 'CONTAINS', 0))
+                bs.add_labels('BS', 'Feature', 'DNA')
+                transreg.add_labels('TranscriptionRegulation', 'RegulationEvent', 'Binding')
+                created += 1
+
+            elif len(res_nodes.data) == 1:
+                    bs = res_nodes.data[0].values[0]
+                    bs.update_properties({'seq': seq, 'start': start,
+                                          'end': end, 'strand': strand,
+                                          'evidence': evidence,
+                                          'Reg_id': site_id,
+                                          'center': center})
+                    update_source_property(bs)
+
+                    transreg, rel_bs_transreg = self.connection.create(
+                        node({'Reg_id': inter_id, 'source': 'RegulonDB'}),
+                        rel(bs, 'PARTICIPATES_IN', 1),
+                        rel(1, tf_effect(effect), promoter))
+                    transreg.add_labels('TranscriptionRegulation', 'RegulationEvent', 'Binding')
+                    updated += 1
+
+            # duplicates!
+            else:
+                warnings.warn("There are %d nodes for a terminator with "
+                              "location (%d, %d, %s)! It was skipped!\n"
+                              % (len(res_nodes.data), start, end, strand))
+                continue
+
+            # creating relations (:TF)-[:PARTICIPATES_IN]->(:TranscriptionRegulation)
+
+        print '%d BSs were updated!\n' \
+              '%d BS were created!\n' \
+              'There were problems with %d BSs.' \
+              % (updated, created, problem)

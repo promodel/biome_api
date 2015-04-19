@@ -366,55 +366,61 @@ class RegulonDB():
                 continue
 
             ### calculating BS position in MetaCyc
-            MC_start = int(promoter["tss"] + center)
+            site_mid = sum([start, end])/2
 
             query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
                     '(tu:TU)-[:HAS_NAME]-(t1:Term {text: "%s"}), ' \
-                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]-(t2:Term {text: "%s"}), ' \
-                    '(tu)-[:CONTAINS]->(bs:BS {start: %d, strand: "%s"}) ' \
-                    'RETURN bs' % (self.ecoli_name, tu_name, pro, MC_start, strand)
+                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]->' \
+                    '(t2:Term {text: "%s"}), ' \
+                    '(tu)-[:CONTAINS]->(bs:BS {strand: "%s"}) ' \
+                    'WHERE bs.start=%d OR bs.start=%d AND bs.end=%d ' \
+                    'RETURN bs' \
+                    % (self.ecoli_name, tu_name, pro, strand, site_mid,
+                       start, end)
             res = neo4j.CypherQuery(self.connection, query)
             res_nodes = res.execute()
 
-            print query
-            print res_nodes.data
-
             # creating BS
             if not res_nodes:
-                bs, transreg, rel_bs_transreg, rel_chr, rel_pro, rel_tu = self.connection.create(
+                bs, rel_bs_transreg, rel_chr, rel_pro, rel_tu = self.connection.create(
                     node({'start': start, 'end': end,
                           'strand': strand, 'seq': seq,
                           'evidence': evidence, 'Reg_id': site_id,
                           'source': 'RegulonDB', 'center': center}),
-                    node({'Reg_id': inter_id, 'source': 'RegulonDB'}),
                     rel(0, 'PARTICIPATES_IN', 1),
                     rel(0, 'PART_OF', self.chro_node),
                     rel(1, tf_effect(effect), promoter),
                     rel(tu, 'CONTAINS', 0))
                 bs.add_labels('BS', 'Feature', 'DNA')
-                transreg.add_labels('TranscriptionRegulation', 'RegulationEvent', 'Binding')
                 created += 1
 
-            else:
-                for record in res_nodes.data:
-                    bs = record.values[0]
-                    bs.update_properties({'seq': seq, 'start': start,
-                                          'end': end, 'strand': strand,
-                                          'evidence': evidence,
-                                          'Reg_id': site_id,
-                                          'center': center})
-                    update_source_property(bs)
+            elif len(res_nodes.data) == 1:
+                bs = res_nodes.data[0].values[0]
+                bs.update_properties({'seq': seq, 'start': start,
+                                      'end': end, 'evidence': evidence,
+                                      'Reg_id': site_id,
+                                      'center': center})
+                update_source_property(bs)
+                updated += 1
 
-                    transreg, rel_bs_transreg, rel_pro = self.connection.create(
-                        node({'Reg_id': inter_id, 'source': 'RegulonDB'}),
-                        rel(bs, 'PARTICIPATES_IN', 0),
-                        rel(0, tf_effect(effect), promoter))
-                    transreg.add_labels('TranscriptionRegulation', 'RegulationEvent', 'Binding')
-                    updated += 1
+            # duplicates!
+            else:
+                warnings.warn("There are %d nodes for a binding site with "
+                              "location (%d, %d, %s)! It was skipped!\n"
+                              % (len(res_nodes.data), start, end, strand))
+                problem += 1
+                continue
+
 
             # creating relations (:TF)-[:PARTICIPATES_IN]->(:TranscriptionRegulation)
+            transreg, rel_bs_transreg, rel_pro = self.connection.create(
+                node({'Reg_id': inter_id, 'source': 'RegulonDB'}),
+                rel(bs, 'PARTICIPATES_IN', 0),
+                rel(0, tf_effect(effect), promoter))
+            transreg.add_labels('TranscriptionRegulation',
+                                'RegulationEvent', 'Binding')
 
         print '%d BSs were updated!\n' \
-              '%d BS were created!\n' \
+              '%d BSs were created!\n' \
               'There were problems with %d BSs.' \
               % (updated, created, problem)

@@ -328,6 +328,20 @@ class RegulonDB():
               'There were problems with %d terminators.' \
               % (updated, created, problem)
 
+    def create_srna_genes(self):
+        f = open(self.directory + 'sRNA genes.txt', 'r')
+        data = f.readlines()
+        f.close()
+        for line in data:
+            if line[0] == '#':
+                continue
+            regid, name, site_id, start, end, strand, inter_id, tu_name, effect, pro, center, seq, evidence = line.split('\t')
+
+    def update_genes_and_products(self):
+        # creating a sRNA genes names list
+        srna_genes = create_srna_genes(self)
+
+
     def create_update_BSs(self):
         f = open(self.directory + 'TF binding sites.txt', 'r')
         data = f.readlines()

@@ -328,18 +328,42 @@ class RegulonDB():
               'There were problems with %d terminators.' \
               % (updated, created, problem)
 
-    def create_srna_genes(self):
-        f = open(self.directory + 'sRNA genes.txt', 'r')
-        data = f.readlines()
-        f.close()
-        for line in data:
-            if line[0] == '#':
-                continue
-            regid, name, site_id, start, end, strand, inter_id, tu_name, effect, pro, center, seq, evidence = line.split('\t')
+    # def update_srna_genes(self):
+    #     f = open(self.directory + 'sRNA genes.txt', 'r')
+    #     data = f.readlines()
+    #     f.close()
+    #     for line in data:
+    #         if line[0] == '#':
+    #             continue
+    #         regid, name, site_id, start, end, strand, inter_id, tu_name, effect, pro, center, seq, evidence = line.split('\t')
 
     def update_genes_and_products(self):
         # creating a sRNA genes names list
-        srna_genes = create_srna_genes(self)
+        f = open(self.directory + 'sRNA genes.txt', 'r')
+        data = f.readlines()
+        f.close()
+        srna_genes = [line.split('\t')[1] for line in data if line[0] != '#']
+
+        f = open(self.directory + 'All gene products.txt', 'r')
+        data = f.readlines()
+        f.close()
+
+        for line in data:
+            if line[0] == '#':
+                continue
+            regid, name, bcode, start, end, strand, product, evidence, pmid = line.split('\t')
+
+            ### testing
+            if '' in [regid, strand, start, end] or 0 in [start, end] or name in srna_genes:
+                continue
+
+            query = 'MATCH (ch:Chromosome {name: "%s"})<-[:PART_OF]-' \
+                    '(g:Gene {start: %d, end: %d, strand: "%s"})-' \
+                    '[:ENCODES]->(p) ' \
+                    'RETURN g, p' % (self.chro_name, start, end, strand)
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
+
 
 
     def create_update_BSs(self):

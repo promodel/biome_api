@@ -347,11 +347,13 @@ class RegulonDB():
         f = open(self.directory + 'All gene products.txt', 'r')
         data = f.readlines()
         f.close()
+        created, updated, problem = [0]*3
 
         for line in data:
             if line[0] == '#':
                 continue
             regid, name, bcode, start, end, strand, product, evidence, pmid = line.split('\t')
+            start, end = [int(start), int(end)]
 
             ### testing
             if '' in [regid, strand, start, end] or 0 in [start, end] or name in srna_genes:
@@ -364,7 +366,79 @@ class RegulonDB():
             res = neo4j.CypherQuery(self.connection, query)
             res_nodes = res.execute()
 
+            if not res_nodes:
+                # is it a gene without a product?
+                query = 'MATCH (ch:Chromosome {name: "%s"})<-[:PART_OF]-' \
+                    '(g:Gene {start: %d, end: %d, strand: "%s"}) ' \
+                    'RETURN g' % (self.chro_name, start, end, strand)
+                res = neo4j.CypherQuery(self.connection, query)
+                res_nodes = res.execute()
 
+                # creting a gene and its product
+                if not res_nodes:
+                    gene, term1, product, term2, rel_org1, \
+                    rel_org2, rel_chro, rel_term1, rel_term2, \
+                    rel_prod = self.connection.create(
+                    node({'name': name, 'evidence': evidence,
+                          'start': start, 'end': end,
+                          'strand': strand, 'bcode': bcode,
+                          'product': product, 'Reg_id': regid,
+                          'source': 'RegulonDB'}),
+                    node({'text': name}),
+                    node({'name': product, 'source': 'RegulonDB'}),
+                    node({'text': product}),
+                    rel(0, 'PART_OF', self.ecoli_node),
+                    rel(2, 'PART_OF', self.ecoli_node),
+                    rel(0, 'PART_OF', self.chro_node),
+                    rel(0, 'HAS_NAME', 1),
+                    rel(2, 'HAS_NAME', 3),
+                    rel(0, 'ENCODES', 2))
+
+                    gene.add_labels('Gene', 'BioEntity', 'Feature', 'DNA')
+                    product.add_labels('Polypeptide', 'Peptide', 'BioEntity')
+                    term1.add_labels('Term')
+                    term2.add_labels('Term')
+                    created += 1
+
+                elif len(res_nodes.data) == 1:
+                    gene = res_nodes.data[0].values[0]
+                    gene.update_properties({'bcode': bcode, 'Reg_id': regid,
+                                           'evidence': evidence})
+                    product, term, rel_term, rel_chro, \
+                    rel_prod = self.connection.create(
+                        node({'name': product, 'source': 'RegulonDB'}),
+                        node({'text': product}),
+                        rel(0, 'HAS_NAME', 1),
+                        rel(0, 'PART_OF', self.ecoli_node),
+                        rel(gene, 'ENCODES', 0))
+                    product.add_labels('Polypeptide', 'Peptide', 'BioEntity')
+                    term.add_labels('Term')
+                    update_source_property(gene)
+                    updated += 1
+
+                else:
+                    warnings.warn("There are %d nodes for a gene with "
+                                  "location (%d, %d, %s)! It was skipped!\n"
+                                  % (len(res_nodes.data), start, end, strand))
+                    problem += 1
+
+            elif len(res_nodes.data) == 1:
+                gene = res_nodes.data[0].values[0]
+                product = res_nodes.data[0].values[1]
+                update_source_property(gene)
+                update_source_property(product)
+                updated += 1
+            else:
+                warnings.warn("There are %d nodes for a gene with "
+                              "location (%d, %d, %s) and its product! "
+                              "It was skipped!\n"
+                              % (len(res_nodes.data), start, end, strand))
+                problem += 1
+
+        print '%d genes were updated!\n' \
+              '%d genes were created!\n' \
+              'There were problems with %d genes.' \
+              % (updated, created, problem)
 
     def create_update_BSs(self):
         f = open(self.directory + 'TF binding sites.txt', 'r')
@@ -375,7 +449,8 @@ class RegulonDB():
         for line in data:
             if line[0] == '#':
                 continue
-            regid, name, site_id, start, end, strand, inter_id, tu_name, effect, pro, center, seq, evidence = line.split('\t')
+            regid, name, site_id, start, end, strand, inter_id, tu_name, \
+            effect, pro, center, seq, evidence = line.split('\t')
 
             ### testing
             if '' in [regid, strand, start, end, center] or 0 in [start, end]:
@@ -385,7 +460,8 @@ class RegulonDB():
 
             query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
                     '(tu:TU)-[:HAS_NAME]-(t1:Term {text: "%s"}), ' \
-                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]-(t2:Term {text: "%s"}) ' \
+                    '(tu)-[:CONTAINS]->(p:Promoter)-[:HAS_NAME]-' \
+                    '(t2:Term {text: "%s"}) ' \
                     'RETURN p, tu' % (self.ecoli_name, tu_name, pro)
             res = neo4j.CypherQuery(self.connection, query)
             res_nodes = res.execute()
@@ -420,14 +496,13 @@ class RegulonDB():
 
             # creating BS
             if not res_nodes:
-                bs, rel_bs_transreg, rel_chr, rel_pro, rel_tu = self.connection.create(
+                bs, rel_bs_transreg, rel_chr, rel_pro, \
+                rel_tu = self.connection.create(
                     node({'start': start, 'end': end,
                           'strand': strand, 'seq': seq,
                           'evidence': evidence, 'Reg_id': site_id,
                           'source': 'RegulonDB', 'center': center}),
-                    rel(0, 'PARTICIPATES_IN', 1),
                     rel(0, 'PART_OF', self.chro_node),
-                    rel(1, tf_effect(effect), promoter),
                     rel(tu, 'CONTAINS', 0))
                 bs.add_labels('BS', 'Feature', 'DNA')
                 created += 1

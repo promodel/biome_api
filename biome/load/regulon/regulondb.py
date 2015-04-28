@@ -328,15 +328,6 @@ class RegulonDB():
               'There were problems with %d terminators.' \
               % (updated, created, problem)
 
-    # def update_srna_genes(self):
-    #     f = open(self.directory + 'sRNA genes.txt', 'r')
-    #     data = f.readlines()
-    #     f.close()
-    #     for line in data:
-    #         if line[0] == '#':
-    #             continue
-    #         regid, name, site_id, start, end, strand, inter_id, tu_name, effect, pro, center, seq, evidence = line.split('\t')
-
     def create_update_genes_and_products(self):
         # creating a sRNA genes names list
         f = open(self.directory + 'sRNA genes.txt', 'r')
@@ -574,3 +565,22 @@ class RegulonDB():
               '%d BSs were created!\n' \
               'There were problems with %d BSs.' \
               % (updated, created, problem)
+
+    def links_genes_tus(self):
+        f = open(self.directory + 'Transcription Units.txt', 'r')
+        data = f.readlines()
+        f.close()
+
+        # searching for all genes without connection with TUs
+        query = 'MATCH (g:Gene) WHERE NOT (g:Gene)<-[:CONTAINS]-(:TU) RETURN g'
+        res = neo4j.CypherQuery(self.connection, query)
+        res_nodes = res.execute()
+
+        if not res_nodes:
+            pass
+        else:
+            for record in res_nodes.data:
+                gene = record.values[0]
+                tus_regids = [line.split('\t')[0] for line in data if gene['name'] in line]
+                print tus_regids
+

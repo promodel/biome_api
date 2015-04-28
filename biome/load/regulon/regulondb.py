@@ -449,6 +449,7 @@ class RegulonDB():
         for line in data:
             if line[0] == '#':
                 continue
+
             regid, name, site_id, start, end, strand, inter_id, tu_name, \
             effect, pro, center, seq, evidence = line.split('\t')
 
@@ -496,8 +497,7 @@ class RegulonDB():
 
             # creating BS
             if not res_nodes:
-                bs, rel_bs_transreg, rel_chr, rel_pro, \
-                rel_tu = self.connection.create(
+                bs, rel_chr, rel_tu = self.connection.create(
                     node({'start': start, 'end': end,
                           'strand': strand, 'seq': seq,
                           'evidence': evidence, 'Reg_id': site_id,
@@ -525,13 +525,36 @@ class RegulonDB():
                 continue
 
 
-            # creating relations (:TF)-[:PARTICIPATES_IN]->(:TranscriptionRegulation)
+            # creating relations
+            # (:TF)-[:PARTICIPATES_IN]->(:TranscriptionRegulation)
             transreg, rel_bs_transreg, rel_pro = self.connection.create(
                 node({'Reg_id': inter_id, 'source': 'RegulonDB'}),
                 rel(bs, 'PARTICIPATES_IN', 0),
                 rel(0, tf_effect(effect), promoter))
             transreg.add_labels('TranscriptionRegulation',
                                 'RegulationEvent', 'Binding')
+
+            # creating relations
+            # (:Protein)-[:PARTICIPATES_IN]->(:TranscriptionRegulation)
+            protein_node = list(self.connection.find('Protein', 'Reg_id', regid))
+
+            if not protein_node:
+                protein_node = self.connection.create(
+                    node({'Reg_id': regid, 'name': name,
+                          'source': 'RegulonDB'}))
+                protein_node[0].add_labels('Protein', 'BioEntity')
+
+            # if there are proteins-duplicates
+            elif len(protein_node) > 1:
+                warnings.warn("There are %d nodes for a protein with name %s!\n"
+                              "They were skipped!\n" % (len(protein_node), name))
+                continue
+            else:
+                #protein_node = protein_node[0]
+                pass
+
+            rel_protein = self.connection.create(
+                rel(protein_node[0], 'PARTICIPATES_IN', transreg))
 
         print '%d BSs were updated!\n' \
               '%d BSs were created!\n' \

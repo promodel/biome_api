@@ -30,7 +30,7 @@ class MakeJob():
 
         #Set the name of the file with non-BLASTed  proteins.
         self._blast_input_txt = organism + '_input_blast'
-        self._blast_input_txt = re.sub('[!@#$/]', '', self._blast_input_txt)
+        self._blast_input_txt = re.sub('[!@#$/ ]', '', self._blast_input_txt)
         self.filename = re.sub('[!@#$/]', '', self.filename)
         self.filename = self._blast_input_txt + '.txt'
 

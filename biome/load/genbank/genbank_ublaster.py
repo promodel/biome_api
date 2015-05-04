@@ -204,7 +204,6 @@ class BlastUploader():
                 else:
                     # If there is a pattern get the sequence of the found poly
                     b_poly = transaction_out[0][0]
-                    print b_poly, target_ref
                     if not long_name_flag:
                         poly_seq = b_poly.get_properties()['seq']
 

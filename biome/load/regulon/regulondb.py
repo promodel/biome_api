@@ -582,5 +582,5 @@ class RegulonDB():
             for record in res_nodes.data:
                 gene = record.values[0]
                 tus_regids = [line.split('\t')[0] for line in data if gene['name'] in line]
-                print tus_regids
+                print gene['name'], tus_regids
 

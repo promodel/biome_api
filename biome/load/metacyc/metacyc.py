@@ -894,7 +894,9 @@ class _DatObject():
         It forms (regulator)-[:PARTICIPATES_IN]->(node) link and stores
         nodes and edges into the MetaCyc object.
         """
-        if isinstance(regulator, Node):
+        if regulator is None:
+            pass
+        elif isinstance(regulator, Node):
             if isinstance(node, Node):
                 if isinstance(metacyc, MetaCyc):
                     if not hasattr(self, 'ASSOCIATED_BINDING_SITE'):

@@ -885,6 +885,26 @@ class _DatObject():
             raise TypeError("The node argument must be of the Node class"
                             " or derived classes!")
 
+    def links_regulator_bs(self, node, metacyc):
+        """
+        The method takes as an input a Node subclass object and a MetaCyc
+        database object and creates links from regulator to the node.
+        It forms (regulator)-[:PARTICIPATES_IN]->(node) link and stores
+        nodes and edges into the MetaCyc object.
+        """
+        if isinstance(node, Node):
+            if isinstance(metacyc, MetaCyc):
+                if not hasattr(self, 'ASSOCIATED-BINDING-SITE'):
+                    pass
+                else:
+                    bs = [b for b in metacyc.BSs if b.uid == self.]
+            else:
+                raise TypeError("The metacyc argument must be of the MetaCyc "
+                                "class!")
+        else:
+            raise TypeError("The node argument must be of the Node class or "
+                            "derived classes!")
+
 ###############################################################################
 
 
@@ -2063,14 +2083,14 @@ class MetaCyc():
                     reg = TranscriptionRegulation(uid=uid,
                                                   comment=obj.attr_check("COMMENT"))
                 elif obj.TYPES in att:
-                    if hasattr(obj, "ANTITERMINATOR-END-POS") and \
-                            hasattr(obj, "ANTITERMINATOR-START-POS"):
+                    if hasattr(obj, "ANTITERMINATOR_END_POS") and \
+                            hasattr(obj, "ANTITERMINATOR_START_POS"):
                         pos1 = [int(obj.ANTITERMINATOR_START_POS),
                                 int(obj.ANTITERMINATOR_END_POS)]
                     else:
                         pos1 = None
-                    if hasattr(obj, "ANTI-ANTITERM-START-POS") \
-                            and hasattr(obj, "ANTI-ANTITERM-END-POS"):
+                    if hasattr(obj, "ANTI_ANTITERM_START_POS") \
+                            and hasattr(obj, "ANTI_ANTITERM_END_POS"):
                         pos2 = [int(obj.ANTI_ANTITERM_START_POS),
                                 int(obj.ANTI_ANTITERM_END_POS)]
                     else:
@@ -2096,6 +2116,13 @@ class MetaCyc():
                 # creating edges to regulators
                 # (Node)-[:PARTICIPATES_IN]->(RegulationEvent)
                 obj.links_to_regulator(reg, self)
+
+                # creating edges from regulator to binding sites
+                # (Node)-[:BINDS_TO]->(BS)
+                # and from binding sites to regulation event node
+                # (BS)-[:PARTICIPATES_IN]->(RegulationEvent)
+                # if they exist
+                obj.links_regulator_bs(reg, self)
 
             print "A list with %d regulation events has been " \
                   "created!" % len(self.regulation_events)

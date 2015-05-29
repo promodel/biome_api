@@ -556,11 +556,13 @@ class _DatObject():
                                 metacyc.edges.append(
                                     CreateEdge(
                                         compound, node, "PARTICIPATES_IN"))
+                        return compound
                     else:
                         metacyc.edges.append(
                             CreateEdge(source[0], node, "PARTICIPATES_IN"))
+                        return source[0]
                 except:
-                    pass
+                    return None
             else:
                 raise TypeError("The metacyc argument must be of the MetaCyc "
                                 "class!")
@@ -885,25 +887,37 @@ class _DatObject():
             raise TypeError("The node argument must be of the Node class"
                             " or derived classes!")
 
-    def links_regulator_bs(self, node, metacyc):
+    def links_regulator_bs(self, regulator, node, metacyc):
         """
         The method takes as an input a Node subclass object and a MetaCyc
         database object and creates links from regulator to the node.
         It forms (regulator)-[:PARTICIPATES_IN]->(node) link and stores
         nodes and edges into the MetaCyc object.
         """
-        if isinstance(node, Node):
-            if isinstance(metacyc, MetaCyc):
-                if not hasattr(self, 'ASSOCIATED-BINDING-SITE'):
-                    pass
+        if isinstance(regulator, Node):
+            if isinstance(node, Node):
+                if isinstance(metacyc, MetaCyc):
+                    if not hasattr(self, 'ASSOCIATED_BINDING_SITE'):
+                        pass
+                    else:
+                        try:
+                            bs = [b for b in metacyc.BSs
+                                  if b.uid == self.ASSOCIATED_BINDING_SITE][0]
+                            metacyc.edges.append(
+                                CreateEdge(regulator, bs, 'BINDS_TO'))
+                            metacyc.edges.append(
+                                CreateEdge(bs, node, 'PARTICIPATES_IN'))
+                        except:
+                            pass
                 else:
-                    bs = [b for b in metacyc.BSs if b.uid == self.]
+                    raise TypeError("The metacyc argument must be of the MetaCyc "
+                                    "class!")
             else:
-                raise TypeError("The metacyc argument must be of the MetaCyc "
-                                "class!")
+                raise TypeError("The node argument must be of the Node class or "
+                                "derived classes!")
         else:
-            raise TypeError("The node argument must be of the Node class or "
-                            "derived classes!")
+            raise TypeError("The regulator argument must be of the Node class or "
+                                "derived classes!")
 
 ###############################################################################
 
@@ -2115,14 +2129,14 @@ class MetaCyc():
 
                 # creating edges to regulators
                 # (Node)-[:PARTICIPATES_IN]->(RegulationEvent)
-                obj.links_to_regulator(reg, self)
+                regulator = obj.links_to_regulator(reg, self)
 
                 # creating edges from regulator to binding sites
                 # (Node)-[:BINDS_TO]->(BS)
                 # and from binding sites to regulation event node
                 # (BS)-[:PARTICIPATES_IN]->(RegulationEvent)
                 # if they exist
-                obj.links_regulator_bs(reg, self)
+                obj.links_regulator_bs(regulator, reg, self)
 
             print "A list with %d regulation events has been " \
                   "created!" % len(self.regulation_events)

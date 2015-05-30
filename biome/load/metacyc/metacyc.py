@@ -2439,13 +2439,13 @@ class MetaCyc():
         f.write(table4)
 
         # Results of a few tests for content
-        f.write("\n\n\nContent tests\n"
-                "---------------------\n\n")
-        f.write(_DuplicateTest(self).result)
-        f.write(_LonelyNodesTest(self).result)
-        f.write(_NegativeCoordinatesTest(self).result)
-        f.write(_StrandStringCheck(self).result)
-        f.write(_XRefIDCheck(self).result)
+        # f.write("\n\n\nContent tests\n"
+        #         "---------------------\n\n")
+        # f.write(_DuplicateTest(self).result)
+        # f.write(_LonelyNodesTest(self).result)
+        # f.write(_NegativeCoordinatesTest(self).result)
+        # f.write(_StrandStringCheck(self).result)
+        # f.write(_XRefIDCheck(self).result)
 
         f.close()
         print "The txt-file with results has been created!"

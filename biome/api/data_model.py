@@ -510,14 +510,17 @@ class Attenuation(RegulationEvent, Binding):
     An object of class Attenuation. It inherits all methods from
     RegulationEvent and Binding classes.
     """
-    def __init__(self, uid=None, comment=None, antiterminator_pos=None,
-                 antiantiterminator_pos=None):
+    def __init__(self, uid=None, comment=None, antiterminator_start=None,
+                 antiterminator_end=None, antiantiterminator_start=None,
+                 antiantiterminator_end=None):
         RegulationEvent.__init__(self, uid, comment)
         Binding.__init__(self)
         self.uid = uid
         self.comment = comment
-        self.antiterminator_pos = antiterminator_pos
-        self.antiantiterminator_pos = antiantiterminator_pos
+        self.antiterminator_start = antiterminator_start
+        self.antiterminator_end = antiterminator_end
+        self.antiantiterminator_start = antiantiterminator_start
+        self.antiantiterminator_end = antiantiterminator_end
 
 ###############################################################################
 

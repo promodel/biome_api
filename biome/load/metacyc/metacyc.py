@@ -2104,17 +2104,19 @@ class MetaCyc():
                         pos1 = [int(obj.ANTITERMINATOR_START_POS),
                                 int(obj.ANTITERMINATOR_END_POS)]
                     else:
-                        pos1 = None
+                        pos1 = [None, None]
                     if hasattr(obj, "ANTI_ANTITERM_START_POS") \
                             and hasattr(obj, "ANTI_ANTITERM_END_POS"):
                         pos2 = [int(obj.ANTI_ANTITERM_START_POS),
                                 int(obj.ANTI_ANTITERM_END_POS)]
                     else:
-                        pos2 = None
+                        pos2 = [None, None]
                     reg = Attenuation(uid=uid,
                                       comment=obj.attr_check("COMMENT"),
-                                      antiterminator_pos=pos1,
-                                      antiantiterminator_pos=pos2)
+                                      antiterminator_start=pos1[0],
+                                      antiterminator_end=pos1[1],
+                                      antiantiterminator_start=pos2[0],
+                                      antiantiterminator_end=pos2[1])
                 elif obj.TYPES in transl:
                     reg = TranslationRegulation(uid=uid,
                                                 comment=obj.attr_check("COMMENT"))

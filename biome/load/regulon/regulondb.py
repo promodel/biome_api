@@ -422,7 +422,7 @@ class RegulonDB():
 
                 # adding labels to a product
                 if name not in srna_genes:
-                     product.add_labels('Polypeptide', 'Peptide', 'BioEntity')
+                    product.add_labels('Polypeptide', 'Peptide', 'BioEntity')
                 else:
                     product.add_labels('sRNA', 'RNA', 'BioEntity')
 
@@ -583,4 +583,57 @@ class RegulonDB():
                 gene = record.values[0]
                 tus_regids = [line.split('\t')[0] for line in data if gene['name'] in line]
                 print gene['name'], tus_regids
+
+    def create_RBSs(self):
+        f = open(self.directory + 'RBSs.txt', 'r')
+        data = f.readlines()
+        f.close()
+        created = 0
+
+        for line in data:
+            if line[0] == '#':
+                continue
+
+            regid, gene, start, end, strand, center, seq, \
+            evidence = line.split('\t')
+
+            ### testing
+            if '' in [regid, strand, start, end] or 0 in [start, end]:
+                continue
+
+            start, end, center = [int(start), int(end), float(center)]
+
+            query = 'MATCH (o:Organism {name: "%s"})<-[:PART_OF]-' \
+                    '(g:Gene {strand: "%s"})-[:HAS_NAME]-(t:Term {text: "%s"}) ' \
+                    'RETURN g' % (self.ecoli_name, strand, gene)
+            res = neo4j.CypherQuery(self.connection, query)
+            res_nodes = res.execute()
+
+            if not res_nodes:
+                continue
+            elif len(res_nodes.data) == 1:
+                g = res_nodes.data[0].values[0]
+            else:
+                # if there are many genes with the same name, we will
+                # choose the closest by location gene
+                genes = [min(g.values[0]['start'] + center,
+                             g.values[0]['end'] + center)
+                         for g in res_nodes.data]
+                i = genes.index(min(genes))
+                g = res_nodes.data[i].values[0]
+
+            rbs, rel_chr, rel_gene = self.connection.create(
+                node({'evidence': evidence, 'Reg_id': regid,
+                      'source': 'RegulonDB', 'start': start,
+                      'end': end, 'strand': strand,
+                      'seq': seq, 'center_from_tss': center}),
+                rel(0, 'PART_OF', self.chro_node),
+                rel(g, 'CONTAINS', 0))
+            rbs.add_labels('RBS', 'Feature', 'DNA')
+            created += 1
+
+        print '%d RBSs were created!' % created
+
+
+
 

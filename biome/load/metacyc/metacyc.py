@@ -556,11 +556,13 @@ class _DatObject():
                                 metacyc.edges.append(
                                     CreateEdge(
                                         compound, node, "PARTICIPATES_IN"))
+                        return compound
                     else:
                         metacyc.edges.append(
                             CreateEdge(source[0], node, "PARTICIPATES_IN"))
+                        return source[0]
                 except:
-                    pass
+                    return None
             else:
                 raise TypeError("The metacyc argument must be of the MetaCyc "
                                 "class!")
@@ -884,6 +886,40 @@ class _DatObject():
         else:
             raise TypeError("The node argument must be of the Node class"
                             " or derived classes!")
+
+    def links_regulator_bs(self, regulator, node, metacyc):
+        """
+        The method takes as an input a Node subclass object and a MetaCyc
+        database object and creates links from regulator to the node.
+        It forms (regulator)-[:PARTICIPATES_IN]->(node) link and stores
+        nodes and edges into the MetaCyc object.
+        """
+        if regulator is None:
+            pass
+        elif isinstance(regulator, Node):
+            if isinstance(node, Node):
+                if isinstance(metacyc, MetaCyc):
+                    if not hasattr(self, 'ASSOCIATED_BINDING_SITE'):
+                        pass
+                    else:
+                        try:
+                            bs = [b for b in metacyc.BSs
+                                  if b.uid == self.ASSOCIATED_BINDING_SITE][0]
+                            metacyc.edges.append(
+                                CreateEdge(regulator, bs, 'BINDS_TO'))
+                            metacyc.edges.append(
+                                CreateEdge(bs, node, 'PARTICIPATES_IN'))
+                        except:
+                            pass
+                else:
+                    raise TypeError("The metacyc argument must be of the MetaCyc "
+                                    "class!")
+            else:
+                raise TypeError("The node argument must be of the Node class or "
+                                "derived classes!")
+        else:
+            raise TypeError("The regulator argument must be of the Node class or "
+                                "derived classes!")
 
 ###############################################################################
 
@@ -2063,22 +2099,24 @@ class MetaCyc():
                     reg = TranscriptionRegulation(uid=uid,
                                                   comment=obj.attr_check("COMMENT"))
                 elif obj.TYPES in att:
-                    if hasattr(obj, "ANTITERMINATOR-END-POS") and \
-                            hasattr(obj, "ANTITERMINATOR-START-POS"):
+                    if hasattr(obj, "ANTITERMINATOR_END_POS") and \
+                            hasattr(obj, "ANTITERMINATOR_START_POS"):
                         pos1 = [int(obj.ANTITERMINATOR_START_POS),
                                 int(obj.ANTITERMINATOR_END_POS)]
                     else:
-                        pos1 = None
-                    if hasattr(obj, "ANTI-ANTITERM-START-POS") \
-                            and hasattr(obj, "ANTI-ANTITERM-END-POS"):
+                        pos1 = [None, None]
+                    if hasattr(obj, "ANTI_ANTITERM_START_POS") \
+                            and hasattr(obj, "ANTI_ANTITERM_END_POS"):
                         pos2 = [int(obj.ANTI_ANTITERM_START_POS),
                                 int(obj.ANTI_ANTITERM_END_POS)]
                     else:
-                        pos2 = None
+                        pos2 = [None, None]
                     reg = Attenuation(uid=uid,
                                       comment=obj.attr_check("COMMENT"),
-                                      antiterminator_pos=pos1,
-                                      antiantiterminator_pos=pos2)
+                                      antiterminator_start=pos1[0],
+                                      antiterminator_end=pos1[1],
+                                      antiantiterminator_start=pos2[0],
+                                      antiantiterminator_end=pos2[1])
                 elif obj.TYPES in transl:
                     reg = TranslationRegulation(uid=uid,
                                                 comment=obj.attr_check("COMMENT"))
@@ -2095,7 +2133,14 @@ class MetaCyc():
 
                 # creating edges to regulators
                 # (Node)-[:PARTICIPATES_IN]->(RegulationEvent)
-                obj.links_to_regulator(reg, self)
+                regulator = obj.links_to_regulator(reg, self)
+
+                # creating edges from regulator to binding sites
+                # (Node)-[:BINDS_TO]->(BS)
+                # and from binding sites to regulation event node
+                # (BS)-[:PARTICIPATES_IN]->(RegulationEvent)
+                # if they exist
+                obj.links_regulator_bs(regulator, reg, self)
 
             print "A list with %d regulation events has been " \
                   "created!" % len(self.regulation_events)
@@ -2396,13 +2441,13 @@ class MetaCyc():
         f.write(table4)
 
         # Results of a few tests for content
-        f.write("\n\n\nContent tests\n"
-                "---------------------\n\n")
-        f.write(_DuplicateTest(self).result)
-        f.write(_LonelyNodesTest(self).result)
-        f.write(_NegativeCoordinatesTest(self).result)
-        f.write(_StrandStringCheck(self).result)
-        f.write(_XRefIDCheck(self).result)
+        # f.write("\n\n\nContent tests\n"
+        #         "---------------------\n\n")
+        # f.write(_DuplicateTest(self).result)
+        # f.write(_LonelyNodesTest(self).result)
+        # f.write(_NegativeCoordinatesTest(self).result)
+        # f.write(_StrandStringCheck(self).result)
+        # f.write(_XRefIDCheck(self).result)
 
         f.close()
         print "The txt-file with results has been created!"

@@ -1,5 +1,4 @@
-import re
-import os
+from ...api import *
 import warnings
 
 class NewReference():
@@ -16,7 +15,7 @@ class NewReference():
             raise TypeError('The old_reference argument must be a string!')
         if not isinstance(old_reference, basestring):
             raise TypeError('The old_reference argument must be a string!')
-        if not set(list(new_reference) + list(old_reference)) <= set(['A', 'T', 'G', 'C']):
+        if set(list(new_reference) + list(old_reference)) > set(['A', 'T', 'G', 'C']):
             warnings.warn('Sequences have noncanonical nucleotides!')
         self.new_ref = new_reference
         self.old_ref = old_reference
@@ -27,4 +26,19 @@ class NewReference():
 
     def __str__(self):
         return "An object of NewReference class"
+
+    def update_metacyc(self, metacyc, node):
+        if not isinstance(metacyc, MetaCyc):
+            raise TypeError("The metacyc argument must be of the "
+                            "MetaCyc class!")
+        if not isinstance(metacyc, Node):
+            raise TypeError("The node argument must be of the "
+                            "Node class or derived classes!")
+        nodes = metacyc.genes + metacyc.terminators + metacyc.promoters +\
+                metacyc.BSs + metacyc.other_nodes
+        edges_ccp = [e.source for e in metacyc.edges
+                     if e.target == node and e.label == 'PART_OF']
+               
+
+
 

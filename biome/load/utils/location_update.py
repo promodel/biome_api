@@ -23,8 +23,8 @@ class NewReference():
         self.path = path
 
     def __repr__(self):
-        return "_DatSet constructed for %s file" % self.filename
+        return "An object of NewReference class"
 
     def __str__(self):
-        return "_DatSet constructed for %s file" % self.filename
+        return "An object of NewReference class"
 

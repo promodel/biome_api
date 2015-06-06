@@ -1,5 +1,9 @@
 from ...api import *
 import warnings
+from time import ctime, time
+import logging
+
+
 
 class NewReference():
     """
@@ -25,6 +29,12 @@ class NewReference():
         self.old_ref = old_reference
         self.path = path
 
+        logging.basicConfig(filename='%slocation_update.log' % self.path,
+                            level=logging.INFO,
+                            format='%(asctime)s %(message)s - %(module)s',
+                            datefmt='%H:%M:%S-%d.%m.%y')
+        self._logger = logging.getLogger(__name__)
+
     def __repr__(self):
         return "An object of NewReference class"
 
@@ -43,10 +53,10 @@ class NewReference():
         if not isinstance(metacyc, MetaCyc):
             raise TypeError("The metacyc argument must be of the "
                             "MetaCyc class!")
-
+        self._logger.info('')
         updated, several, notfound = [0]*3
         for ccp_node in metacyc.ccp:
-        # TODO change ccp (?)
+            self._logger.info('')
             edges_ccp = [e.source for e in metacyc.edges
                          if e.target == ccp_node and e.label == 'PART_OF']
             nodes = [n for n in metacyc.genes + metacyc.terminators +
@@ -64,13 +74,16 @@ class NewReference():
                         i = diff.index(min(diff))
                         node.start, node.end = location[0][i], location[1][i]
                         several += 1
-                        # TODO LOGS
-                        # TODO Label
+                        self._logger.warning('')
+                        node.labels += ':ToCheck'
+                        node.checking_note = 'A few locations are possible, ' \
+                                             'they are %s' % [].join
                 else:
                     notfound += 1
-                    # TODO LOGS
-                    # TODO Label
-
+                    self._logger.warning('')
+                    node.labels += ':ToCheck'
+                    node.checking_note = 'An old version of the location!'
+        self._logger.info('')
 
 
 

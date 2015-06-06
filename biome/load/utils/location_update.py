@@ -46,25 +46,33 @@ class NewReference():
         if not isinstance(ccp_node, Node):
             raise TypeError("The node argument must be of the "
                             "Node class or derived classes!")
-        nodes = metacyc.genes + metacyc.terminators + metacyc.promoters +\
-                metacyc.BSs + metacyc.other_nodes + metacyc.regulation_events
+        # TODO change ccp (?)
         edges_ccp = [e.source for e in metacyc.edges
                      if e.target == ccp_node and e.label == 'PART_OF']
+        nodes = [n for n in metacyc.genes + metacyc.terminators +
+                            metacyc.promoters + metacyc.BSs + metacyc.other_nodes
+                 if hasattr(n, 'start') and hasattr(n, 'end') and n in edges_ccp]
+
+        updated, several, notfound = [0]*3
+
         for node in nodes:
-            if node in edges_ccp:
-                location = [False, False, False]
-                if hasattr(node, 'start') and hasattr(node, 'end'):
-                    location = self.identify_location(node.start, node.end)
-                if hasattr(node, 'antiterminator_start') and \
-                        hasattr(node, 'antiterminator_end'):
-                    location = self.identify_location(node.antiterminator_start,
-                                                      node.antiterminator_end)
-                if hasattr(node, 'antiantiterminator_start') and \
-                        hasattr(node, 'antiantiterminator_end'):
-                    location = self.identify_location(node.antiantiterminator_start,
-                                                      node.antiantiterminator_end)
-                if location[2] == True:
-                    node.start, node.end = location[:2]
+            location = self.identify_location(node.start, node.end)
+            if location[2] is True:
+                if len(location[0]):
+                    node.start, node.end = location[0], location[1]
+                    updated += 1
+                else:
+                    diff = [abs(l-node.start) for l in location[0]]
+                    i = diff.index(min(diff))
+                    node.start, node.end = location[0][i], location[1][i]
+                    several += 1
+                    # TODO LOGS
+                    # TODO Label
+            else:
+                notfound += 1
+                # TODO LOGS
+                # TODO Label
+
 
 
 

@@ -33,11 +33,11 @@ class NewReference():
 
     def identify_location(self, start, end):
         seq = self.old_ref[(start-1):end]
-        new_start = self.new_ref.find(seq)
-        if new_start == -1:
-            return (False, False, False)
+        new_starts = [m.start()+1 for m in re.finditer('(?=%s)' % seq, self.new_ref)]
+        if not new_starts:
+            return [], [], False
         else:
-            return (new_start, new_start + len(seq) - 1, True)
+            return new_starts, map(lambda x: x + len(seq) - 1, new_starts), True
 
     def update_metacyc(self, metacyc, ccp_node):
         if not isinstance(metacyc, MetaCyc):

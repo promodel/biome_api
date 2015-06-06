@@ -5,16 +5,20 @@ class NewReference():
     """
     """
     def __init__(self, new_reference, old_reference, path='./'):
+        bases = set(['A', 'T', 'G', 'C', 'U', 'W', 'S', 'M', 'K', 'R',
+                     'Y', 'B', 'D', 'H', 'V', 'N', '-'])
         if not isinstance(new_reference, basestring):
             raise TypeError('The new_reference argument must be a string!')
         if not isinstance(old_reference, basestring):
             raise TypeError('The old_reference argument must be a string!')
         if not isinstance(path, basestring):
             raise TypeError('The path argument must be a string!')
+        if not os.path.isdir(path):
+            raise ValueError('The path does not exist!')
+
         new_reference = new_reference.upper()
         old_reference = old_reference.upper()
-
-        if set(list(new_reference) + list(old_reference)) <= set(['A', 'T', 'G', 'C']):
+        if set(list(new_reference) + list(old_reference)) <= bases:
             warnings.warn('Sequences have noncanonical nucleotides!')
 
         self.new_ref = new_reference

@@ -113,7 +113,7 @@ class NewReference():
                  if hasattr(n, 'start') and hasattr(n, 'end') and n in edges_ccp]
 
         for node in nodes:
-            location = self.update_location(node.start, node.end)
+            location = self.update_location(node.start, node.end, 7, 10)
             if location[2]:
                 if len(location[0]) == 1:
                     # easy case! updating the node
@@ -132,7 +132,7 @@ class NewReference():
                                     'They are: %s. \n'
                                     'The closest match is [%d, %d], '
                                     'difference = %d.'
-                                    % (node.__str__, pos_loc,
+                                    % (node, pos_loc,
                                        location[0][i],
                                        location[1][i],
                                        diff[i]))
@@ -144,7 +144,7 @@ class NewReference():
                     several += 1
             else:
                 logging.warning('Updating problem: no sequence match'
-                                ' for %s!' % node.__str__)
+                                ' for %s!' % node)
                 # updating the node
                 node.labels += ':ToCheck'
                 node.checking_note = 'An old version of the location!'

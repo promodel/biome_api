@@ -1,6 +1,6 @@
 from ...api import *
+from ...load import *
 import warnings
-from time import ctime, time
 import logging
 
 
@@ -22,7 +22,7 @@ class NewReference():
 
         new_reference = new_reference.upper()
         old_reference = old_reference.upper()
-        if set(list(new_reference) + list(old_reference)) <= bases:
+        if set(list(new_reference) + list(old_reference)) >= bases:
             warnings.warn('Sequences have noncanonical nucleotides!')
 
         self.new_ref = new_reference
@@ -36,9 +36,11 @@ class NewReference():
         return "An object of NewReference class"
 
     def identify_location(self, start, end):
+        if end > len(self.old_ref):
+            raise ValueError('Site coordinates are out of sequence length!')
         seq = self.old_ref[(start-1):end]
-        new_starts = [m.start()+1 for m in re.finditer('(?=%s)'
-                                                       % seq, self.new_ref)]
+        new_starts = [m.start() + 1 for m in re.finditer('(?=%s)'
+                                                         % seq, self.new_ref)]
         if not new_starts:
             return [], [], False
         else:
@@ -102,7 +104,7 @@ class NewReference():
                 notfound += 1
 
         logging.info('Update of the MetaCyc object for %s was completed!\n'
-                     'There were %d updated nodes, %d unchanged nodes,'
+                     'There were %d updated nodes, %d unchanged nodes, '
                      '%d nodes with a few possible locations.'
                      % (metacyc.organism.name, updated, notfound, several))
 

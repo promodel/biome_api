@@ -35,16 +35,63 @@ class NewReference():
     def __str__(self):
         return "An object of NewReference class"
 
-    def identify_location(self, start, end):
+    def update_location(self, start, end, flank=4, threshold=8):
+        #start -= 1
+        if start < 0:
+            raise ValueError('Start position must be a positive integer!')
         if end > len(self.old_ref):
             raise ValueError('Site coordinates are out of sequence length!')
         seq = self.old_ref[(start-1):end]
+
+        if len(seq) < threshold:
+            # if subsequence is too small
+            return self.identify_smallseq_location(start,
+                                                   end, flank=flank)
+        else:
+            return self.identify_seq_location(seq)
+
+    def identify_seq_location(self, seq):
         new_starts = [m.start() + 1 for m in re.finditer('(?=%s)'
                                                          % seq, self.new_ref)]
         if not new_starts:
             return [], [], False
         else:
-            return new_starts, map(lambda x: x + len(seq) - 1, new_starts), True
+            return new_starts, [(x + len(seq) - 1) for x in new_starts], True
+
+    def identify_smallseq_location(self, start, end, flank):
+        doubleflank = 2*flank
+        if (start - flank) >= 0 and (end + flank) <= len(self.old_ref):
+            new_start = start - flank
+            new_end = end + flank
+            seq = self.old_ref[new_start:new_end]
+            location = self.identify_seq_location(seq)
+            if location[2]:
+                return [(x + flank - 1) for x in location[0]], \
+                       [x - flank for x in location[1]], True
+            else:
+                return location
+        elif start - doubleflank >= 0:
+            new_start = start - doubleflank
+            seq = self.old_ref[new_start:end]
+            location = self.identify_seq_location(seq)
+            if location[2]:
+                return [(x + doubleflank - 1) for x in location[0]], \
+                       location[1], True
+            else:
+                return location
+        elif end + doubleflank <= len(self.old_ref):
+            new_end = end + doubleflank
+            seq = self.old_ref[start:new_end]
+            location = self.identify_seq_location(seq)
+            if location[2]:
+                return [x - 1 for x in location[0]], \
+                       [x - doubleflank for x in location[1]],\
+                       True
+            else:
+                return location
+        else:
+            raise ValueError('The threshold is too high!')
+
 
     def update_metacyc(self, metacyc, ccp_node):
         if not isinstance(metacyc, MetaCyc):
@@ -66,8 +113,8 @@ class NewReference():
                  if hasattr(n, 'start') and hasattr(n, 'end') and n in edges_ccp]
 
         for node in nodes:
-            location = self.identify_location(node.start, node.end)
-            if location[2] is True:
+            location = self.update_location(node.start, node.end)
+            if location[2]:
                 if len(location[0]) == 1:
                     # easy case! updating the node
                     node.start, node.end = location[0][0], location[1][0]
@@ -107,7 +154,3 @@ class NewReference():
                      'There were %d updated nodes, %d unchanged nodes, '
                      '%d nodes with a few possible locations.'
                      % (metacyc.organism.name, updated, notfound, several))
-
-
-
-

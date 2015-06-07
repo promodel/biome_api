@@ -67,13 +67,13 @@ class NewReference():
             location = self.identify_location(node.start, node.end)
             if location[2] is True:
                 if len(location[0]) == 1:
+                    # easy case! updating the node
                     node.start, node.end = location[0][0], location[1][0]
                     updated += 1
                 else:
+                    # looking for the closest match
                     diff = [abs(l - node.start) for l in location[0]]
                     i = diff.index(min(diff))
-                    node.start, node.end = location[0][i], location[1][i]
-                    several += 1
                     pos_loc = ', '.join(['[%d, %d]'
                                          % (location[0][n], location[1][n])
                                          for n in xrange(0, len(location[0]))])
@@ -87,15 +87,20 @@ class NewReference():
                                        location[0][i],
                                        location[1][i],
                                        diff[i]))
+                    # updating the node
+                    node.start, node.end = location[0][i], location[1][i]
                     node.labels += ':ToCheck'
                     node.checking_note = 'A few locations are possible, ' \
                                          'they are %s' % pos_loc
+                    several += 1
             else:
-                notfound += 1
                 logging.warning('Updating problem: no sequence match'
                                 ' for %s!' % node.__str__)
+                # updating the node
                 node.labels += ':ToCheck'
                 node.checking_note = 'An old version of the location!'
+                notfound += 1
+
         logging.info('Update of the MetaCyc object for %s was completed!\n'
                      'There were %d updated nodes, %d unchanged nodes,'
                      '%d nodes with a few possible locations.'

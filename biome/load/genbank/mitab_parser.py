@@ -42,3 +42,12 @@ def get_mi_dict(dict_file):
         #     create big dictionary
         text = text[end_index:]
     return interaction_dict
+
+def filter_eukaryotic(intact_file, substrings=['human', 'eukaryotic'], filetered_filename='filtered_intact.txt'):
+    open_file = open(intact_file, 'r')
+    filtered_file = open(filetered_filename, 'w')
+    for line in open_file:
+        if not any(substring in line for substring in substrings):
+            filtered_file.write(line)
+    open_file.close()
+    filtered_file.close()

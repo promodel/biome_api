@@ -43,11 +43,19 @@ def get_mi_dict(dict_file):
         text = text[end_index:]
     return interaction_dict
 
-def filter_eukaryotic(intact_file, substrings=['human', 'eukaryotic'], filetered_filename='filtered_intact.txt'):
+def filter_eukaryotic(intact_file, substrings=['human', 'eukaryotic'], filtered_filename='intact_filtered.txt'):
     open_file = open(intact_file, 'r')
-    filtered_file = open(filetered_filename, 'w')
+    filtered_file = open(filtered_filename, 'w')
     for line in open_file:
         if not any(substring in line for substring in substrings):
             filtered_file.write(line)
     open_file.close()
     filtered_file.close()
+
+def cut_mitab(intact_file, short_intact='intact_short.txt', string_number=10):
+    open_file = open(intact_file, 'r')
+    short_file = open(short_intact, 'w')
+    for i in xrange(string_number):
+        short_file.write(open_file.next())
+    open_file.close()
+    short_file.close()

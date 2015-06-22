@@ -20,7 +20,7 @@ def parse_mitab(mitab_file):
 #         to be implemented
 #         compare with big dictionary and upload current data to DB
 
-def get_mi_dict(dict_file):
+def get_mi_dict(dict_file='/home/artem/BLAST_DB/psi-mi25.obo'):
     # read format
     open_file = open(dict_file, 'r')
     text = open_file.readlines()
@@ -28,6 +28,7 @@ def get_mi_dict(dict_file):
     # cut the description
     text = text[text.index('[Term]\n'):]
     interaction_dict = {}
+    interaction_mis = {}
     # read short parts for each term
     while text[0] == '[Term]\n':
         end_index = text.index('\n')+1
@@ -43,11 +44,13 @@ def get_mi_dict(dict_file):
                     part_dict[key] = value
             except:
                 continue
+            if 'MI:0190 ! interaction type' in line:
+                interaction_mis[part_dict['id']] = part_dict
             interaction_dict[part_dict['id']] = part_dict
         #     to be implemented
         #     create big dictionary
         text = text[end_index:]
-    return interaction_dict
+    return interaction_dict, interaction_mis
 
 def filter_eukaryotic(intact_file, substrings=['human', 'eukaryotic'], filtered_filename='intact_filtered.txt'):
     open_file = open(intact_file, 'r')
@@ -116,82 +119,92 @@ class PSIMIXML():
             experiments = reaction.getElementsByTagName(self.entries_list[1])
             interactors = reaction.getElementsByTagName(self.entries_list[2])
             interactions = reaction.getElementsByTagName(self.entries_list[3])
-        return sources[0], experiments[0], interactors[0], interactions[0]
+        return sources, experiments, interactors, interactions
 
     def read_interactors(self, interactors):
         interactors_dict = {}
-        for interactor in interactors.getElementsByTagName('interactor'):
-            # make dictionary of interactors with ids as he keys
-            current_interactor = interactor.getAttribute('id')
-            interactors_dict[current_interactor] = {}
-            # add xrefs to this dictionary
-            xrefs = {}
-            xrefs[interactor.getElementsByTagName('primaryRef')[0].getAttribute('db')] =\
-                interactor.getElementsByTagName('primaryRef')[0].getAttribute('id')
-            # for secondary_xref in interactor.getElementsByTagName('secondaryRef'):
-            #     xrefs[secondary_xref.getAttribute('db')] =\
-            #         secondary_xref.getAttribute('id')
-            interactors_dict[current_interactor]['xref'] = xrefs
+        for entry in interactors:
+            for interactor in entry.getElementsByTagName('interactor'):
+                # make dictionary of interactors with ids as he keys
+                current_interactor = interactor.getAttribute('id')
+                interactors_dict[current_interactor] = {}
+                # add xrefs to this dictionary
+                xrefs = {}
+                xrefs[interactor.getElementsByTagName('primaryRef')[0].getAttribute('db')] =\
+                    interactor.getElementsByTagName('primaryRef')[0].getAttribute('id')
+                # for secondary_xref in interactor.getElementsByTagName('secondaryRef'):
+                #     xrefs[secondary_xref.getAttribute('db')] =\
+                #         secondary_xref.getAttribute('id')
+                interactors_dict[current_interactor]['xref'] = xrefs
+                try:
+                    # add organism ncbi id
+                    interactors_dict[current_interactor]['org_id'] = interactor.getElementsByTagName('organism')[0].getAttribute('ncbiTaxId')
+                except:
+                    interactors_dict[current_interactor]['org_id'] = 'unknown'
+                try:
+                    # add sequence
+                    interactors_dict[current_interactor]['sequence'] = interactor.getElementsByTagName('sequence')[0].firstChild.data
+                except:
+                    interactors_dict[current_interactor]['sequence'] = ''
 
-            # add organism ncbi id
-            interactors_dict[current_interactor]['org_id'] = interactor.getElementsByTagName('organism')[0].getAttribute('ncbiTaxId')
-
-            # add sequence
-            interactors_dict[current_interactor]['sequence'] = interactor.getElementsByTagName('sequence')[0].firstChild.data
-
-            # add interactor id for crossreferecing in th xml file
-            interactors_dict[current_interactor]['interactor_id'] = interactor.getAttribute('id')
+                # add interactor id for crossreferecing in th xml file
+                interactors_dict[current_interactor]['interactor_id'] = interactor.getAttribute('id')
         return interactors_dict
 
     def read_interactions(self, interactions):
         interactions_dict = {}
-        for interaction in interactions.getElementsByTagName('interaction'):
-            # make dictionary of interactors with ids as he keys
-            # current_interaction = interaction.getAttribute('id')
-            current_interaction = interaction.getAttribute('imexId')
-            interactions_dict[current_interaction] = {}
-            # add xrefs to this dictionary
-            xrefs = {}
-            xrefs[interaction.getElementsByTagName('primaryRef')[0].getAttribute('db')] =\
-                interaction.getElementsByTagName('primaryRef')[0].getAttribute('id')
-            interactions_dict[current_interaction]['xref'] = xrefs
-            # create dictionary for reaction interactor
-            participants = interaction.getElementsByTagName('participant')
-            interactions_dict[current_interaction]['participants'] = []
-            # create experimental ref for xml cross referencing
-            experiment_ref = interaction.getElementsByTagName('experimentRef')[0].firstChild.data
-            interactions_dict[current_interaction]['exp_ref'] = experiment_ref
-            for participant in participants:
-                # add xml-cross reference for interactor
-                interactions_dict[current_interaction]['participants'].append(
-                    participant.getElementsByTagName('interactorRef')[0].firstChild.data)
-                # add biological role
-                interactions_dict[current_interaction]['bio_role'] = {}
-                interactions_dict[current_interaction]['bio_role'] =\
-                    participant.getElementsByTagName('biologicalRole')[0].getElementsByTagName('fullName')[0].firstChild.data
-        return interactions_dict
+        for entry in interactions:
+            for interaction in entry.getElementsByTagName('interaction'):
+                # make dictionary of interactors with ids as he keys
+                # current_interaction = interaction.getAttribute('id')
+                # current_interaction = interaction.getAttribute('imexId')
+                current_interaction = interaction.getAttribute('id')
+                interactions_dict[current_interaction] = {}
+                # add xrefs to this dictionary
+                xrefs = {}
+                xrefs[interaction.getElementsByTagName('primaryRef')[0].getAttribute('db')] =\
+                    interaction.getElementsByTagName('primaryRef')[0].getAttribute('id')
+                interactions_dict[current_interaction]['xref'] = xrefs
+                # create dictionary for reaction interactor
+                participants = interaction.getElementsByTagName('participant')
+                interactions_dict[current_interaction]['participants'] = []
+                # create experimental ref for xml cross referencing
+                experiment_ref = interaction.getElementsByTagName('experimentRef')[0].firstChild.data
+                interactions_dict[current_interaction]['exp_ref'] = experiment_ref
+                interactions_dict[current_interaction]['interaction_type'] =\
+                        interaction.getElementsByTagName('interactionType')[0].getElementsByTagName('fullName')[0].firstChild.data
+                for participant in participants:
+                    # add xml-cross reference for interactor
+                    interactions_dict[current_interaction]['participants'].append(
+                        participant.getElementsByTagName('interactorRef')[0].firstChild.data)
+                    # add biological role
+                    interactions_dict[current_interaction]['bio_role'] = {}
+                    interactions_dict[current_interaction]['bio_role'] =\
+                        participant.getElementsByTagName('biologicalRole')[0].getElementsByTagName('fullName')[0].firstChild.data
+            return interactions_dict
 
     def read_experiments(self, experiments):
         experiments_dict = {}
-        for experiment in experiments.getElementsByTagName('experimentDescription'):
-            # get experiment id for xml cross referencing
-            current_experiment = experiment.getAttribute('id')
-            experiments_dict[current_experiment] = {}
-            # get xrefs
-            xrefs = {}
-            xref = experiment.getElementsByTagName('xref')[0]
-            xrefs[xref.getElementsByTagName('primaryRef')[0].getAttribute('db')] \
-                = xref.getElementsByTagName('primaryRef')[0].getAttribute('id')
-            experiments_dict[current_experiment]['xref'] = xrefs
-            # get host organism
-            experiments_dict[current_experiment]['host_org'] =\
-                experiment.getElementsByTagName('hostOrganism')[0].getAttribute('ncbiTaxId')
-            #  get interaction detection method
-            experiments_dict[current_experiment]['int_detection'] =\
-                experiment.getElementsByTagName('interactionDetectionMethod')[0].getElementsByTagName('fullName')[0].firstChild.data
-            # get participant identification method
-            experiments_dict[current_experiment]['part_identification'] =\
-                experiment.getElementsByTagName('participantIdentificationMethod')[0].getElementsByTagName('fullName')[0].firstChild.data
+        for entry in experiments:
+            for experiment in entry.getElementsByTagName('experimentDescription'):
+                # get experiment id for xml cross referencing
+                current_experiment = experiment.getAttribute('id')
+                experiments_dict[current_experiment] = {}
+                # get xrefs
+                xrefs = {}
+                xref = experiment.getElementsByTagName('xref')[1]
+                xrefs[xref.getElementsByTagName('primaryRef')[0].getAttribute('db')] \
+                    = xref.getElementsByTagName('primaryRef')[0].getAttribute('id')
+                experiments_dict[current_experiment]['xref'] = xrefs
+                # get host organism
+                experiments_dict[current_experiment]['host_org'] =\
+                    experiment.getElementsByTagName('hostOrganism')[0].getAttribute('ncbiTaxId')
+                #  get interaction detection method
+                experiments_dict[current_experiment]['int_detection'] =\
+                    experiment.getElementsByTagName('interactionDetectionMethod')[0].getElementsByTagName('fullName')[0].firstChild.data
+                # get participant identification method
+                experiments_dict[current_experiment]['part_identification'] =\
+                    experiment.getElementsByTagName('participantIdentificationMethod')[0].getElementsByTagName('fullName')[0].firstChild.data
         return experiments_dict
 
 # DOMTree = xml.dom.minidom.parse('/home/artem/BLAST_DB/intact/ecoli/ecoli_01.xml')

@@ -234,7 +234,7 @@ class GenBank():
                 # pass
         except:
             next_feature = self.rec.features[i]
-            self._logger.info('Gene has no product.')
+            self._logger.info('Gene product finding fails.')
         gene_dict['start'] = int(next_feature.location.start) + 1
         gene_dict['end'] = int(next_feature.location.end)
         gene_dict['strand'] = num2strand(next_feature.location.strand)

@@ -598,7 +598,7 @@ class GenBank():
                 'MATCH (ccp)<-[:PART_OF]-(ng) ' \
                 'WHERE ng.start=%d AND ng.end=%d AND ng.strand="%s" ' \
                 'RETURN ng' \
-                % (self.organism_list[2], start, end, strand)
+                % (self.ccp_list[2], start, end, strand)
         self._logger.info(query)
         transaction.append(query)
         try:

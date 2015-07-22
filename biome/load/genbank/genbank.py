@@ -110,7 +110,7 @@ class GenBank():
         taxon = self.rec.features[0].qualifiers['db_xref'][0].split(':')[1]
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
-        query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp:Chromosome)-[:EVIDENCE]->(xref:XRef) ' \
+        query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp)-[:EVIDENCE]->(xref:XRef) ' \
                 'WHERE org.name="%s" AND ccp.length=%d AND xref.id="%s" RETURN org, ccp, xref' \
                 % (self.rec.annotations['source'],
                    int(self.rec.features[0].location.end),

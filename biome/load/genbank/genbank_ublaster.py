@@ -90,9 +90,16 @@ class BlastUploader():
     #     query_seq = line.split('|')[-1]
     #     return poly_id, poly_info, identity, target_seq.upper(), target_ref, query_seq.upper()
 
+    # def _line_distinguisher_usearch(self, line):
+    #     for ublast version 8, must be fixed
+    #     head, identity, target_seq, target_ref = line.split('\t')[:4]
+    #     poly_id, poly_info, query_org = head.split('|')
+    #     query_seq = line.split('\t')[-1]
+    #     return poly_id, poly_info, identity, target_seq.upper(), target_ref, query_seq.upper()
+
     def _line_distinguisher_usearch(self, line):
-        head, identity, target_seq, target_ref = line.split('\t')[:4]
-        poly_id, poly_info, query_org = head.split('|')
+        # for ublast version 7
+        poly_id, poly_info, identity, target_seq, target_ref = line.split('\t')[:5]
         query_seq = line.split('\t')[-1]
         return poly_id, poly_info, identity, target_seq.upper(), target_ref, query_seq.upper()
 

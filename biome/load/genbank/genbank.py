@@ -558,6 +558,31 @@ class GenBank():
         except:
             node.update_properties({'source': ['GenBank']})
 
+    # def search_gene_pattern(self, start, end, strand):
+    #     if not isinstance(start, int) or not isinstance(end, int):
+    #         raise ValueError('start and end must be string.')
+    #     if not isinstance(strand, str):
+    #         raise ValueError('strand must be string.')
+    #     if not strand in ["forward", "reverse", "unknown"]:
+    #         raise ValueError('strand must be "forward", "reverse" or "unknown".')
+    #
+    #     self._logger.info('Searching gene pattern:')
+    #     session = cypher.Session(self.db_connection.db_link)
+    #     transaction = session.create_transaction()
+    #     query = 'START org=node(%s), ccp=node(%s) ' \
+    #             'MATCH (ccp)<-[:PART_OF]-(g:Gene)-[:PART_OF]->(org) ' \
+    #             'WHERE g.start=%d AND g.end=%d AND g.strand="%s" ' \
+    #             'RETURN g' \
+    #             % (self.organism_list[2], self.ccp_list[2], start, end, strand)
+    #     self._logger.info(query)
+    #     transaction.append(query)
+    #     try:
+    #         transaction_res = list(transaction.commit())[0]
+    #         self._logger.info('Transaction succeeded.')
+    #         return transaction_res
+    #     except:
+    #         self._logger.error('Transaction failed.')
+
     def search_gene_pattern(self, start, end, strand):
         if not isinstance(start, int) or not isinstance(end, int):
             raise ValueError('start and end must be string.')
@@ -566,19 +591,40 @@ class GenBank():
         if not strand in ["forward", "reverse", "unknown"]:
             raise ValueError('strand must be "forward", "reverse" or "unknown".')
 
-        self._logger.info('Searching gene pattern:')
+        self._logger.info('Searching gene pattern "ORGANISM--GENE--CCP":')
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
-        query = 'START org=node(%s), ccp=node(%s) ' \
-                'MATCH (ccp)<-[:PART_OF]-(g:Gene)-[:PART_OF]->(org) ' \
-                'WHERE g.start=%d AND g.end=%d AND g.strand="%s" ' \
-                'RETURN g' \
-                % (self.organism_list[2], self.ccp_list[2], start, end, strand)
-        self._logger.info(query)
-        transaction.append(query)
         try:
+            query = 'START org=node(%s), ccp=node(%s) ' \
+                    'MATCH (ccp)<-[:PART_OF]-(g:Gene)-[:PART_OF]->(org) ' \
+                    'WHERE g.start=%d AND g.end=%d AND g.strand="%s" ' \
+                    'RETURN g' \
+                    % (self.organism_list[2], self.ccp_list[2], start, end, strand)
+            self._logger.info(query)
+            transaction.append(query)
             transaction_res = list(transaction.commit())[0]
             self._logger.info('Transaction succeeded.')
+            if not transaction_res:
+                self._logger.error('Transaction failed.')
+                try:
+                    self._logger.info('Searching gene pattern "GENE--POLYPEPTIDE--ORGANISM":')
+                    session = cypher.Session(self.db_connection.db_link)
+                    transaction = session.create_transaction()
+                    query = 'START org=node(%s) ' \
+                            'MATCH (g:Gene)-[:ENCODES]->(p:Polypeptide)-[:PART_OF]->(org) ' \
+                            'WHERE g.start=%d AND g.end=%d AND g.strand="%s" ' \
+                            'RETURN g, p' \
+                            % (self.organism_list[2], start, end, strand)
+                    self._logger.info(query)
+                    transaction.append(query)
+                    transaction_res = list(transaction.commit())[0]
+                    self._logger.info('Transaction succeeded.')
+                    print 'Make edge'
+                    self.db_connection.data_base.create(rel(transaction_res[0][0], 'PART_OF', self.organism_list[0]),
+                                                        rel(transaction_res[0][0], 'PART_OF', self.ccp_list[0]))
+                    print 'Edge is made'
+                except:
+                    pass
             return transaction_res
         except:
             self._logger.error('Transaction failed.')
@@ -900,6 +946,33 @@ class GenomeRelations():
         log_message = 'Created %d relations for %s in %s' \
                       % (len(features), type_of_node, self.organism_list[1])
         self._logger.info(log_message)
+
+    def connect_organisms_to_taxons(self):
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (t:Taxon), (o:Organism) ' \
+                'WHERE NOT (t)-[:IS_A]-(o)' \
+                'RETURN DISTINCT o.name'
+        transaction.append(query)
+        transaction_out = transaction.commit()
+        if transaction_out:
+            for org_name in transaction_out[0]:
+                session = cypher.Session(self.db_connection.db_link)
+                transaction = session.create_transaction()
+                query = 'MATCH (t:Taxon), (o:Organism{name:"%s"}) ' \
+                        'WHERE t.scientific_name=o.name ' \
+                        'CREATE o-[r:IS_A]->t'\
+                        % (org_name[0])
+                transaction.append(query)
+                try:
+                    transaction.commit()
+                except:
+                    log_message = 'Transaction failed: %s' % query
+                    self._logger.error(log_message)
+        else:
+            log_message = 'All organisms are connected with taxons.'
+            self._logger.info(log_message)
+            print log_message
 
 # import doctest
 # doctest.testfile('test_genbank.txt')

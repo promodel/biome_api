@@ -80,7 +80,7 @@ class GenBank():
         self.search_pattern_cypher()
 
         # Feature loop.
-        self._logger.info('Start reading the gb-file features.')
+        self._logger1.info('Start reading the gb-file features.')
         for i, feature in enumerate(self.rec.features):
             if feature.type == 'gene':
                 self.make_gene_and_product(i)
@@ -89,12 +89,12 @@ class GenBank():
             elif feature.type in self.gene_product_list:
                 pass
             else:
-                self._logger.info('Unknown element %s was skipped.' % feature.type)
+                self._logger1.info('Unknown element %s was skipped.' % feature.type)
 
     def _read_gb_file(self):
         rec = SeqIO.read(self.gb_file, 'genbank')
         if not rec:
-            self._logger.error('gb-file is empty.')
+            self._logger1.error('gb-file is empty.')
             raise ValueError('gb-file is empty.')
         seq_file = open(self.gb_file, 'r')
         first_line = seq_file.readline()
@@ -103,11 +103,11 @@ class GenBank():
             seq_type = 'circular'
         else:
             seq_type = 'linear'
-        self._logger.info('The header of gb-file was read successfully.')
+        self._logger1.info('The header of gb-file was read successfully.')
         return rec, seq_type
 
     def search_pattern_cypher(self):
-        self._logger.info('Searching for start pattern:')
+        self._logger1.info('Searching for start pattern:')
         taxon = self.rec.features[0].qualifiers['db_xref'][0].split(':')[1]
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
@@ -118,9 +118,9 @@ class GenBank():
                    self.rec.annotations['accessions'][0])
         transaction.append(query)
         transaction_res = list(transaction.commit())[0]
-        self._logger.info(query)
+        self._logger1.info(query)
         if transaction_res:
-            self._logger.info('Pattern was found.')
+            self._logger1.info('Pattern was found.')
             transaction_res = transaction_res[0]
             self.organism_list = [transaction_res[0], self.rec.annotations['organism'], node2link(transaction_res[0])]
             self.update_source(transaction_res[0], transaction_res[0].get_properties())
@@ -977,5 +977,5 @@ class GenomeRelations():
             self._logger1.info(log_message)
             print log_message
 
-import doctest
-doctest.testfile('test_genbank.txt')
+# import doctest
+# doctest.testfile('test_genbank.txt')

@@ -622,10 +622,8 @@ class GenBank():
                     transaction.append(query)
                     transaction_res = list(transaction.commit())[0]
                     self._logger1.info('Transaction succeeded.')
-                    print 'Make edge'
                     self.db_connection.data_base.create(rel(transaction_res[0][0], 'PART_OF', self.organism_list[0]),
                                                         rel(transaction_res[0][0], 'PART_OF', self.ccp_list[0]))
-                    print 'Edge is made'
                 except:
                     pass
             return transaction_res
@@ -975,7 +973,7 @@ class GenomeRelations():
         else:
             log_message = 'All organisms are connected with taxons.'
             self._logger1.info(log_message)
-            print log_message
+            #print log_message
 
 # import doctest
 # doctest.testfile('test_genbank.txt')

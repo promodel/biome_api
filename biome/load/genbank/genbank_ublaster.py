@@ -195,7 +195,6 @@ class BlastUploader():
 
 class BlastUploader2(BlastUploader):
 
-
     def upload_batch_nodes_usearch_sp(self, usearch_result):
         # Read usearch output file
         res_file = open(usearch_result, 'r')
@@ -211,7 +210,8 @@ class BlastUploader2(BlastUploader):
                 print 'Processing line %d\n' % line_counter
             line_counter += 1
             # Distinguish line
-            poly_id, poly_info, identity, target_seq, target_ref, query_seq, evalue, md5 = self._line_distinguisher_usearch(line)
+            poly_id, poly_info, identity, target_seq, target_ref, query_seq, evalue, md5_query, md5_target =\
+                self._line_distinguisher_usearch(line)
 
             # Find poly and check its sequence
             poly = self._find_poly_by_id_and_check_seq(poly_id, query_seq)
@@ -226,39 +226,49 @@ class BlastUploader2(BlastUploader):
                 warnings.warn(log_message)
                 self._logger.error(log_message)
             else:
-                # check if this target sequence already has an xref
-                transaction_out = self._check_xref(target_ref, md5)
-
-                if not transaction_out:
-                    # check if target sequence already exists
-                    seq_node = self.find_nodes('Sequence', ['seq', 'md5'], [target_seq, md5])
-                    if not seq_node:
-                        # If there is no such pattern, create it: poly--xref--db
-                        self._write2batch(batch, target_ref, target_seq, poly, identity, evalue, md5)
-                    else:
-                        self._write2batch_add_xref(batch, target_ref, md5, identity, poly, seq_node)
-                    # create xref and connect its b_poly to poly for target seq
-
+                # check node with query_md5
+                query_seq_node = list(self.db_connection.data_base.find('Sequence', 'md5', md5_query))
+                if not query_seq_node:
+                    # if does not exist, create (seq)-IS_A-(poly)
+                    query_seq_node = self._create_seq(batch, query_seq, md5_query)
+                    batch.create(rel(poly, 'IS_A', query_seq_node))
+                    batch.set_property(poly, 'md5', md5_query)
                 else:
-                    # If there is a pattern with a b_poly get its sequence
-                    seq_node = transaction_out[0][0]
-                    b_poly_seq = seq_node.get_properties()['seq']
-
-                    # Compare poly's sequence and the file sequence
-                    if not b_poly_seq == target_seq:
-                        # If does not match log an error
-                        log_message = 'Sequence of the found polypeptide does not match to the one existing in the data base ' \
-                                      'ref:%s, seq:%s' % (target_ref, target_seq)
-                        print log_message
-                        self._logger.error(log_message)
-
-                    # Check if there is already edge 'SIMILAR' between poly and b_poly
-                    b_poly = self.find_nodes('Polypeptide', ['md5'], md5)
-                    rels = list(self.db_connection.data_base.match(start_node=b_poly, end_node=poly))
-                    if not rels:
-                        # If there is no edge 'SIMILAR' between poly and b_poly, create it
-                        batch.create(rel(b_poly, ('SIMILAR', {'identity': identity}), poly))
+                    # if exists, do nothing, get node with query_md5
+                    query_seq_node = query_seq_node[0]
+                # check node with target_md5
+                target_seq_node = list(self.db_connection.data_base.find('Sequence', 'md5', md5_target))
+                if not target_seq_node:
+                    # if does not exist, create (seq)-SIMILAR-(seq)-IS_A-(b_poly)--XRef
+                    target_seq_node = self._create_seq(batch, target_seq, md5_target)
+                    self._create_similarity_pattern(batch, target_seq_node, query_seq_node, evalue, identity, target_ref, md5_target)
+                else:
+                    target_seq_node = target_seq_node[0]
+                    batch.create(rel(target_seq_node,
+                                     ('SIMILAR', {'identity': identity, 'evalue': evalue},
+                                      query_seq_node)))
+                    # Possible conditions
+                    # if exists,check XRef.id with target_ref
+                            # if exists connect node with target_md5: (seq)-SIMILAR-(seq)
+                            # if does not exist, connect node with target_md5: (seq)-SIMILAR-(seq)-IS_A-(b_poly)--XRef
         batch.submit()
+
+    def _create_seq(self, batch, seq, md5):
+        seq_node = batch.create(node({'md5': md5,
+                                      'seq': seq}))
+        batch.add_labels(seq_node, 'Sequence')
+        return seq_node
+
+    def _create_similarity_pattern(self, batch, target_seq_node, query_seq_node, evalue, identity, target_ref, md5_target):
+        b_poly = batch.create(node({'md5': md5_target}))
+        batch.add_labels(b_poly, 'Peptide', 'Polypeptide')
+        xref = batch.create(node({'id': target_ref}))
+        batch.add_labels(xref, 'XRef')
+        batch.create(rel(b_poly, 'EVIDENCE', xref))
+        batch.create(rel(b_poly, 'IS_A', target_seq_node))
+        batch.create(rel(target_seq_node,
+                         ('SIMILAR', {'identity': identity, 'evalue': evalue}),
+                         query_seq_node))
 
 
     def _find_poly_by_id_and_check_seq(self, poly_id, query_seq):
@@ -279,10 +289,25 @@ class BlastUploader2(BlastUploader):
         # for ublast version 7
         poly_id, poly_info, identity, target_seq, target_ref = line.split('\t')[:5]
         evalue, query_seq = line.split('\t')[-2:]
-        md5 = hashlib.md5(target_seq.upper()).hexdigest()
-        return poly_id, poly_info, identity, target_seq.upper(), target_ref, query_seq.upper(), eval(evalue), md5
+        md5_target = hashlib.md5(target_seq.upper()).hexdigest()
+        md5_query = hashlib.md5(query_seq.upper()).hexdigest()
+        return poly_id, poly_info, identity, target_seq.upper(), target_ref, query_seq.upper(), eval(evalue), md5_query, md5_target
 
     def _check_xref(self, target_ref, md5):
+        # Create cypher session to search pattern
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (s:Sequence)--(x:XRef)--(db:DB) ' \
+                'WHERE db.name="%s" ' \
+                'AND x.id="%s" ' \
+                'AND s.md5=%.2e' \
+                'RETURN s' % ('UniProt', target_ref, md5)
+        transaction.append(query)
+        return transaction.commit()[0]
+
+    def _check_sequence(self, poly, md5):
+
+        len(list(graph_db.match(start_node=start_node, end_node=end_node, rel_type=relationship))) > 0:
         # Create cypher session to search pattern
         session = cypher.Session(self.db_link)
         transaction = session.create_transaction()

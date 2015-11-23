@@ -45,6 +45,7 @@ class GenBank():
         logging.basicConfig(filename = 'BiomeDB.log', level = logger_level,
                             format = '%(asctime)s %(message)s - %(module)s.%(funcName)s',
                             datefmt='%H:%M:%S-%d.%m.%y')
+
         self._logger1 = logging.getLogger('GenBank.log')
         # self._logger1 = logging.getLogger(__name__)
         self._logger1.info('GenBank object was created. For file ' + gb_file)
@@ -975,5 +976,6 @@ class GenomeRelations():
             self._logger1.info(log_message)
             #print log_message
 
-# import doctest
+import doctest
 # doctest.testfile('test_genbank.txt')
+doctest.testfile('test_genbank_new.txt')

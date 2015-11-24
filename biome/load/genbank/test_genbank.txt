@@ -44,7 +44,7 @@ Description
     >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
     >>> organism = gb.GenBank(gb_file_shw, connection)
     >>> organism.external_sources['GenBank']
-    Node('http://localhost:8484/db/data/node/9')
+    Node('http://localhost:8484/db/data/node/2')
     >>> len(organism.external_sources)
     1
 
@@ -95,7 +95,7 @@ Description
     >>> transaction.append(query)
     >>> transaction_out = transaction.commit()[0][0][0]
     >>> print transaction_out
-    (0)-[:PART_OF]->(6)
+    (4)-[:PART_OF]->(0)
     >>> transaction = session.create_transaction()
     >>> query = 'MATCH (o:Organism)<-[r:PART_OF]-(:Chromosome) WHERE o.name = "Aliivibrio salmonicida LFI1238" DELETE r'
     >>> transaction.append(query)
@@ -107,33 +107,52 @@ Description
     >>> transaction = session.create_transaction()
     >>> query = 'MATCH (o:Organism)<-[r1:PART_OF]-(c:Chromosome)-[r2:EVIDENCE]->(x:XRef) WHERE c.name = "Aliivibrio salmonicida LFI1238 chromosome 2 complete genome." RETURN r1,r2'
     >>> transaction.append(query)
-    >>> transaction_out = transaction.commit()[0][0][0]
-    >>> print transaction_out
-    (10)-[:PART_OF]->(6)
+    >>> transaction_out = transaction.commit()[0][0]
+    >>> print transaction_out[0]
+    (6)-[:PART_OF]->(0)
+    >>> print transaction_out[1]
+    (6)-[:EVIDENCE]->(7)
     >>> transaction = session.create_transaction()
     >>> query = 'MATCH (o:Organism)<-[r1:PART_OF]-(c:Chromosome)-[r2:EVIDENCE]->(x:XRef) WHERE c.name = "Aliivibrio salmonicida LFI1238 chromosome 2 complete genome." DELETE r1,r2'
     >>> transaction.append(query)
     >>> transaction_out = transaction.commit()
     >>> organism.create_or_update_ccp()
     >>> transaction = session.create_transaction()
-    >>> query = 'MATCH (x:XRef {id:"FM178380"})<-[r1]-(c:Chromosome)-[r2]->() RETURN r1, c'
+    >>> query = 'MATCH (x:XRef {id:"FM178380"})<-[r1]-(c:Chromosome) RETURN r1'
     >>> transaction.append(query)
     >>> transaction_out = transaction.commit()[0][0][0]
     >>> print transaction_out
-    (10)-[:LINK_TO]->(11)
+    (6)-[:EVIDENCE]->(7)
     >>> transaction = session.create_transaction()
-    >>> query = 'MATCH (x:XRef {id:"FM178380"})<-[r1]-(c:Chromosome)-[r2]->() DELETE r1,r2,x,c'
+    >>> query = 'MATCH ()-[l:LINK_TO]-(x:XRef {id:"FM178380"})<-[r1]-(c:Chromosome)-[r2]->() DELETE r1,r2,x,c,l'
     >>> transaction.append(query)
     >>> transaction_out = transaction.commit()
 
 7. Test for method search_gene_pattern.
     >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
     >>> organism = gb.GenBank(gb_file_shw, connection)
-    >>> organism.organism_list[2] = 1
-    >>> organism.ccp_list[2] = 0
+    >>> organism.organism_list[2] = 3
+    >>> organism.ccp_list[2] = 4
+    >>> gene, = connection.data_base.create({'start':397, 'end':1785, 'strand':'forward'})
+    >>> gene.add_labels('Gene', 'Feature', 'BioEntity')
+    >>> rel, = connection.data_base.create((gene, "PART_OF", connection.data_base.node(3)))
+    >>> rel, = connection.data_base.create((gene, "PART_OF", connection.data_base.node(4)))
     >>> organism.search_gene_pattern(397, 1785, 'forward')
-    [Record(columns=(u'g',), values=(Node('http://localhost:8484/db/data/node/3'),))]
-    
+    [Record(columns=(u'g',), values=(Node('http://localhost:8484/db/data/node/8'),))]
+    >>> gene, = connection.data_base.create({'start':1, 'end':15, 'strand':'forward'})
+    >>> gene.add_labels('Gene', 'Feature', 'BioEntity')    
+    >>> poly, = connection.data_base.create({'seq':'AAAPPP'})
+    >>> poly.add_labels('Peptide', 'Polypeptide', 'BioEntity')
+    >>> rel, = connection.data_base.create((gene, "ENCODES", poly))
+    >>> rel, = connection.data_base.create((poly, "PART_OF", connection.data_base.node(3)))
+    >>> organism.search_gene_pattern(1, 15, 'forward')
+    [Record(columns=(u'g', u'p'), values=(Node('http://localhost:8484/db/data/node/9'), Node('http://localhost:8484/db/data/node/10')))]
+    >>> session = gb.cypher.Session(connection.db_link)
+    >>> transaction = session.create_transaction()    
+    >>> query = 'MATCH (c:Chromosome)<-[r1]-(g:Gene {start:397, end:1785, strand: "forward"})-[r2]->(p:Organism) DELETE r1,r2'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()
+   
 8. Test for method make_gene_and_product.
 Description
     >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
@@ -188,21 +207,48 @@ Description
     >>> transaction.append(query)
     >>> transaction_out = transaction.commit()
     
-11. Test for make_next_relation.
+11. Test for GenomeRelations, make_next_relation, make_overlap_relation.
 Description
     >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
-    >>> organism = gb.GenBank(gb_file_chl, connection)
-    >>> organism.make_next_relation(1)
+    >>> gr = gb.GenomeRelations(connection)
+    >>> gr.set_organism(1.1)
+    Traceback (most recent call last):
+    ValueError: Argument must be a string or int.If string it must contain the name of the organism.If int it must be a link to the node in database.
+    >>> gr.set_organism(1)
+    >>> gr.make_next_relation(1)
     Traceback (most recent call last):
     ValueError: type_of_node must be string.
-    >>> organism.make_next_relation('Feature')
+    >>> gr.make_next_relation('Feature')
     Traceback (most recent call last):
-    UserWarning: There is no organism "Chlamydia trachomatis A2497" in the base or there is no features connected to this organism. First do organism.upload before doing organism.make_next_relation.
+    UserWarning: There is no chromosome, contig or plasmid (ccp) for organism "Aliivibrio salmonicida LFI1238" in the base. First upload organism to the base before using organism.make_next_relation.
+    >>> chromosome, = connection.data_base.create({'name':'Test_chromosome', 'type':'circular'})
+    >>> chromosome.add_labels('Chromosome')
+    >>> rel, = connection.data_base.create((chromosome, "PART_OF", connection.data_base.node(0)))
+    >>> gr.set_organism(1)
+    >>> gr.make_next_relation('Feature')
+    Traceback (most recent call last):
+    UserWarning: There is no chromosome, contig or plasmid (ccp) for organism "Aliivibrio salmonicida LFI1238" in the base. First upload organism to the base before using organism.make_next_relation.
     >>> organism = gb.GenBank(gb_file_shw, connection)
-    >>> organism.search_pattern_cypher()
-    >>> organism.make_next_relation('Foo')
+    >>> organism.upload()
+    >>> gr.set_organism('Shewanella woodyi ATCC 51908')
+    >>> gr.make_next_relation('Foo')
     Traceback (most recent call last):
     ValueError: Label "Foo" is not found in base.
-    >>> organism.make_next_relation('XRef')
+    >>> gr.make_next_relation('XRef')
     Traceback (most recent call last):
     ValueError: Label "XRef" has not got properties start, end and strand.
+    
+12. Test for GenomeRelations, connect_organisms_to_taxons.
+Description
+    >>> connection = gb.BioGraphConnection('http://localhost:8484/db/data/')
+    >>> gr = gb.GenomeRelations(connection)
+    >>> taxon, = connection.data_base.create({'scientific_name':'Shewanella woodyi ATCC 51908'})
+    >>> taxon.add_labels('Taxon')
+    >>> gr.connect_organisms_to_taxons()
+    >>> session = gb.cypher.Session(connection.db_link)
+    >>> transaction = session.create_transaction()    
+    >>> query = 'MATCH ()-[r:IS_A]-() return r'
+    >>> transaction.append(query)
+    >>> transaction_out = transaction.commit()
+    >>> print transaction_out[0][0][0]
+    (3)-[:IS_A]->(50)

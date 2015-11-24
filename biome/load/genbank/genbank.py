@@ -977,5 +977,4 @@ class GenomeRelations():
             #print log_message
 
 import doctest
-# doctest.testfile('test_genbank.txt')
-doctest.testfile('test_genbank_new.txt')
+doctest.testfile('test_genbank.txt')

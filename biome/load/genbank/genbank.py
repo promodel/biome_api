@@ -228,6 +228,7 @@ class GenBank():
         # Take info out of gene
         gene_dict = {'locus_tag':gene.qualifiers['locus_tag'][0]}
         try:
+            # check if gene has product
             next_feature = self.rec.features[i+1]
             if not next_feature.type in self.gene_product_list:
                 next_feature = self.rec.features[i]
@@ -419,7 +420,7 @@ class GenBank():
     def create_or_update_cds(self, feature, gene_node):
         # Taking info for the polypetide
         self._logger1.info('Processing CDS.')
-        poly_dict = {'name':feature.qualifiers['product'][0]}
+        poly_dict = {'name': feature.qualifiers['product'][0]}
         try:
             seq = feature.qualifiers['translation'][0]
             self._logger1.info('CDS has translation in source.')
@@ -431,6 +432,7 @@ class GenBank():
             except:
                 self._logger1.info('Gene was not translated. start: %d, end: %d, seq: %s' % (feature.location.nofuzzy_start, feature.location.nofuzzy_end, dna_seq))
                 raise ValueError
+        # insert hash calculation
         poly_dict['seq'] = seq
         try:
             poly_dict['comment'] = feature.qualifiers['note'][0]

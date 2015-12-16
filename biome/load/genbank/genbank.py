@@ -6,6 +6,7 @@ from time import ctime, time
 import warnings
 import logging
 import os
+import hashlib
 
 
 def parse2read(gb_file):
@@ -42,6 +43,7 @@ class GenBank():
             raise TypeError('db_connection must be an instance of the class BioGraphConnection.')
         if not os.path.isfile(gb_file):
             raise ValueError('There is no %s in current directory.' % gb_file)
+        logging.getLogger("py2neo").setLevel(logging.CRITICAL)
         logging.basicConfig(filename = 'BiomeDB.log', level = logger_level,
                             format = '%(asctime)s %(message)s - %(module)s.%(funcName)s',
                             datefmt='%H:%M:%S-%d.%m.%y')
@@ -91,6 +93,7 @@ class GenBank():
                 pass
             else:
                 self._logger1.info('Unknown element %s was skipped.' % feature.type)
+        self.process_non_updated_polypeptides()
 
     def _read_gb_file(self):
         rec = SeqIO.read(self.gb_file, 'genbank')
@@ -112,11 +115,15 @@ class GenBank():
         taxon = self.rec.features[0].qualifiers['db_xref'][0].split(':')[1]
         session = cypher.Session(self.db_connection.db_link)
         transaction = session.create_transaction()
-        query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp)-[:EVIDENCE]->(xref:XRef) ' \
-                'WHERE org.name="%s" AND ccp.length=%d AND xref.id="%s" RETURN org, ccp, xref' \
-                % (self.rec.annotations['source'],
-                   int(self.rec.features[0].location.end),
-                   self.rec.annotations['accessions'][0])
+        # query = 'MATCH (org:Organism)<-[:PART_OF]-(ccp)-[:EVIDENCE]->(xref:XRef) ' \
+        #         'WHERE org.name="%s" AND ccp.length=%d AND xref.id="%s" RETURN org, ccp, xref' \
+        #         % (self.rec.annotations['source'],
+        #            int(self.rec.features[0].location.end),
+        #            self.rec.annotations['accessions'][0])
+        query = 'MATCH (xref:XRef{id:%s})<-[:EVIDENCE]-(ccp{length:%d})-[:PART_OF]->(o:Organism) ' \
+                'RETURN o, ccp, xref' \
+                % (self.rec.annotations['accessions'][0],
+                   int(self.rec.features[0].location.end))
         transaction.append(query)
         transaction_res = list(transaction.commit())[0]
         self._logger1.info(query)
@@ -420,6 +427,7 @@ class GenBank():
     def create_or_update_cds(self, feature, gene_node):
         # Taking info for the polypetide
         self._logger1.info('Processing CDS.')
+        seq_dict = {}
         poly_dict = {'name': feature.qualifiers['product'][0]}
         try:
             seq = feature.qualifiers['translation'][0]
@@ -432,8 +440,7 @@ class GenBank():
             except:
                 self._logger1.info('Gene was not translated. start: %d, end: %d, seq: %s' % (feature.location.nofuzzy_start, feature.location.nofuzzy_end, dna_seq))
                 raise ValueError
-        # insert hash calculation
-        poly_dict['seq'] = seq
+
         try:
             poly_dict['comment'] = feature.qualifiers['note'][0]
             self._logger1.info('CDS has comment.')
@@ -452,6 +459,8 @@ class GenBank():
         transaction.append(query)
         check_poly = transaction.commit()[0]
         if not check_poly:
+            seq_dict['seq'] = seq
+            seq_dict['md5'] = hashlib.md5(seq.upper()).hexdigest()
             self._logger1.info('CDS was not found. Creating CDS.')
             poly_dict['source'] = ['GenBank']
             # %%%%%%%%%%%
@@ -459,13 +468,17 @@ class GenBank():
                 poly_dict['name'] = 'hypothetical protein %s' %feature.qualifiers['locus_tag'][0]
             # %%%%%%%%%%%
             # Creating a polypeptide node
-            poly_node, part_of_org, encodes = self.db_connection.data_base.create(
+            poly_node, seq_node, part_of_org, encodes, is_a = self.db_connection.data_base.create(
                     node(poly_dict),
+                    node(seq_dict),
                     rel(0, 'PART_OF', self.organism_list[0]),
-                    rel(gene_node, 'ENCODES', 0))
+                    rel(gene_node, 'ENCODES', 0),
+                    rel(0, 'IS_A', 1)
+            )
 
             # Adding labels to the node
             poly_node.add_labels('Polypeptide', 'Peptide', 'BioEntity')
+            seq_node.add_labels('Sequence', 'AA_Sequence')
 
             # Creating term
             self.create_term(poly_dict['name'], poly_node)
@@ -476,16 +489,33 @@ class GenBank():
             # Updating the polypeptide node
             self._logger1.info('CDS was found. Updating CDS.')
             poly_node = check_poly[0][0]
-            poly_props = poly_node.get_properties()
+            try:
+                poly_node, poly_props = self._update_poly_and_seq(poly_node, seq_dict)
+                ### Now this part of code is in the method ###
+                # poly_props = poly_node.get_properties()
+                #
+                # # Deleting seq from poly and make seq_dict
+                # seq_dict['seq'] = poly_props.pop('seq')
+                # seq_dict['md5'] = hashlib.md5(seq.upper()).hexdigest()
+                # poly_node.set_properties(poly_props)
 
-            # Updating source
-            self.update_source(poly_node, poly_props)
+                # # Creating Sequence node are its relations
+                # seq_node, is_a = self.db_connection.data_base.create(
+                #     node(seq_dict),
+                #     rel(poly_node, 'IS_A', 0)
+                # )
+                # seq_node.add_labels('Sequence', 'AA_Sequence')
+                #
+                # Updating source
+                self.update_source(poly_node, poly_props)
 
-            # Checking name of existing gene
-            if poly_props['name'] != poly_dict['name']:
-                self.create_term(poly_dict['name'], poly_node)
+                # Checking name of existing gene
+                if poly_props['name'] != poly_dict['name']:
+                    self.create_term(poly_dict['name'], poly_node)
 
-            # Flag for create_xref method.
+                # Flag for create_xref method.
+            except:
+                pass
             updated = True
 
         # Creating XRef
@@ -496,9 +526,27 @@ class GenBank():
         except:
             self._logger1.info('CDS has no xrefs.')
 
+    def _update_poly_and_seq(self, poly_node, seq_dict):
+        poly_props = poly_node.get_properties()
+        # Deleting seq from poly and make seq_dict
+        try:
+            seq_dict['seq'] = poly_props.pop('seq').upper()
+            seq_dict['md5'] = hashlib.md5(seq_dict['seq']).hexdigest()
+            poly_node.set_properties(poly_props)
+            # Creating Sequence node are its relations
+            seq_node, is_a = self.db_connection.data_base.create(
+                node(seq_dict),
+                rel(poly_node, 'IS_A', 0))
+            seq_node.add_labels('Sequence', 'AA_Sequence')
+            return poly_node, poly_props
+        except:
+            log_warn = 'Polypeptide has no sequence. Node id: %s' % node2link(poly_node)
+            print log_warn
+            self._logger1.warning(log_warn)
+
     def make_non_gene(self, feature):
         self._logger1.info('Processing non-gene feature.')
-        feature_dict ={}
+        feature_dict = {}
         feature_dict['start'] = int(feature.location.start) + 1
         feature_dict['end'] = int(feature.location.end)
         feature_dict['strand'] = num2strand(feature.location.strand)
@@ -611,7 +659,7 @@ class GenBank():
             transaction_res = list(transaction.commit())[0]
             self._logger1.info('Transaction succeeded.')
             if not transaction_res:
-                self._logger1.error('Transaction failed.')
+                self._logger1.warning('The gene is not found.')
                 try:
                     self._logger1.info('Searching gene pattern "GENE--POLYPEPTIDE--ORGANISM":')
                     session = cypher.Session(self.db_connection.db_link)
@@ -771,6 +819,21 @@ class GenBank():
         except:
             self._logger1.warning('Node was not found')
             raise UserWarning('Transaction failed.')
+
+    def process_non_updated_polypeptides(self):
+        session = cypher.Session(self.db_connection.db_link)
+        transaction = session.create_transaction()
+        query = 'START o=node(%s) ' \
+                'MATCH (p:Polypeptide)-[:PART_OF]->(o) ' \
+                'WHERE p.source="MetaCyc" ' \
+                'RETURN p' % self.organism_list[2]
+        transaction.append(query)
+        transaction_res = list(transaction.commit())[0]
+        for metacyc_poly in transaction_res:
+            seq_dict = {}
+            self._update_poly_and_seq(metacyc_poly[0], seq_dict)
+
+
 
 class GenomeRelations():
 
@@ -978,5 +1041,5 @@ class GenomeRelations():
             self._logger1.info(log_message)
             #print log_message
 
-import doctest
-doctest.testfile('test_genbank.txt')
+# import doctest
+# doctest.testfile('test_genbank.txt')

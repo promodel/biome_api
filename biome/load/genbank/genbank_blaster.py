@@ -9,6 +9,7 @@ import re
 
 class MakeJob():
     def __init__(self, db_connection, e_value=0.00001, logger_level=logging.INFO):
+        logging.getLogger("py2neo").setLevel(logging.CRITICAL)
         logging.basicConfig(filename = 'BiomeDB.log',
                             level = logger_level,
                             format = '%(asctime)s %(message)s - %(module)s.%(funcName)s',
@@ -67,19 +68,6 @@ class MakeJob():
                 except:
                     new_file.close()
 
-            # Creating bash-script which will start blastp command
-            bash = open('run_blast.sh', 'w')
-            bash.write('#!/usr/bin/bash\n')
-            self._blast_input_txt + '_part' + str(i) + '.FASTA'
-            bash_input = ('blastp -db $2'
-                       ' -evalue %f'
-                       ' -out "%s_blast_out_part$1.xml"'
-                       ' -query "%s' + '_part$1.FASTA"'
-                       ' -outfmt 5 '
-                       ' -a 4 ') % (self.e_value, self._blast_input_txt, self._blast_input_txt)
-            bash.write(bash_input)
-            bash.close()
-
     def _find_non_blasted(self, organism):
         """
         Private method that searches in the data bases for the proteins
@@ -111,7 +99,9 @@ class MakeJob():
             # for search with taxon
             # transaction_out = self._find_non_blasted_proteins_with_taxon(organism)
             # for search without taxon
-            transaction_out = self._find_non_blasted_proteins(organism)
+            # transaction_out = self._find_non_blasted_proteins(organism)
+            # for search for sequences
+            transaction_out = self._find_non_blasted_sequences(organism)
             if not transaction_out:
                 log_message = 'Nothing was found on your query: %s' % query
                 self._logger.warning(log_message)
@@ -132,7 +122,7 @@ class MakeJob():
                         polypeptides_file.write(poly_str)
                         poly_counter += 1
                     except:
-                        log_message = 'Could not write a polypeptide into a file: %s' % str(result[0])
+                        log_message = 'Could not write a sequence into a file: %s' % str(result[0])
                         self._logger.error(log_message)
                         warnings.warn(log_message)
                 polypeptides_file.close()
@@ -155,6 +145,20 @@ class MakeJob():
                 'AND HAS(p.seq) AND ' \
                 '(ccp)-[:PART_OF]->(o) ' \
                 'RETURN distinct p, p.seq, g.start, g.end, ccp' % organism
+        transaction.append(query)
+        log_message = 'Searching query: ' + query
+        self._logger.info(log_message)
+        return transaction.commit()[0]
+
+    def _find_non_blasted_sequences(self, organism):
+        session = cypher.Session(self.db_link)
+        transaction = session.create_transaction()
+        query = 'MATCH (s:AA_Sequence)<-[:IS_A]-(p:Polypeptide)<-[:ENCODES]-(g:Gene)-[:PART_OF]->(ccp), (o:Organism) ' \
+                'WHERE (p)-[:PART_OF]->(o) ' \
+                'AND NOT((s)-[:SIMILAR]-(:AA_Sequence)) ' \
+                'AND o.name="%s" ' \
+                'AND (ccp)-[:PART_OF]->(o) ' \
+                'RETURN distinct s, s.seq, g.start, g.end, ccp' % organism
         transaction.append(query)
         log_message = 'Searching query: ' + query
         self._logger.info(log_message)

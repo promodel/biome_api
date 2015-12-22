@@ -118,7 +118,7 @@ class BlastUploader():
         res_file.close()
 
         # Create {xref: sequence node} dictionary
-        
+
         # Create a batch
         batch = neo4j.WriteBatch(self.db_connection.data_base)
         line_counter = 0
